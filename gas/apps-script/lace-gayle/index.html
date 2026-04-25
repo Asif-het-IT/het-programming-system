@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>het Programming System</title>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+
+  <style>
+    :root{
+      --bg:#f4f7fb; --card:#ffffff; --nav:#0f172a;
+      --primary:#184e7a; --secondary:#0b5394;
+      --success:#16a34a; --warning:#f59e0b; --danger:#dc2626;
+      --text:#1f2937; --muted:#6b7280; --line:#dbe3ec;
+      --shadow:0 10px 28px rgba(15,23,42,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;width:100%;min-height:100%;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+    .sidebar{background:linear-gradient(180deg,var(--nav),#172554);color:#fff;padding:24px 18px;position:sticky;top:0;height:100vh}
+    .brand{margin-bottom:26px}.brand h1{margin:0;font-size:28px}.brand p{margin:8px 0 0;opacity:.85;font-size:13px}
+    .nav-btn{width:100%;border:none;background:rgba(255,255,255,.08);color:#fff;text-align:left;padding:14px 16px;border-radius:14px;margin-bottom:10px;cursor:pointer;font-weight:700}
+    .nav-btn:hover,.nav-btn.active{background:rgba(255,255,255,.18)}
+    .content{padding:22px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}.topbar h2{margin:0;font-size:24px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{border:none;border-radius:12px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer}
+    .btn-primary{background:var(--primary);color:#fff}.btn-secondary{background:#fff;border:1px solid var(--line);color:var(--text)}.btn-success{background:var(--success);color:#fff}
+    .panel{display:none}.panel.active{display:block}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid #edf2f7}
+    .stat{padding:18px}.stat .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase}.stat .value{font-size:28px;font-weight:800;margin-top:8px;color:var(--primary)}
+    .card-header{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}.card-header h3{margin:0;font-size:18px}
+    .card-body{padding:18px 20px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}
+    label{font-size:13px;font-weight:700;color:#334155}
+    input,select,textarea{width:100%;border:1px solid #cdd8e5;background:#fff;border-radius:12px;padding:12px 13px;font-size:14px;outline:none}
+    textarea{min-height:88px;resize:vertical}.readonly{background:#f8fafc;color:#475569;font-weight:700}
+    .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;margin-bottom:14px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:16px}
+    table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:12px;border-bottom:1px solid #eef2f7;font-size:13px;text-align:left;white-space:nowrap}
+    th{background:var(--primary);color:#fff;position:sticky;top:0;z-index:1}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+    .stage-process{background:#1d4ed8}.stage-ready{background:#16a34a}.stage-on_the_way{background:#d97706}.stage-completed{background:#7c3aed}
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.chart-box{min-height:320px}.recent-box{margin-top:18px}
+    .loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.7);z-index:9999}.loading.show{display:flex}
+    .loader{background:#fff;padding:18px 24px;border-radius:16px;box-shadow:var(--shadow);font-weight:700;color:var(--primary)}
+    .footer-note{color:var(--muted);font-size:12px;margin-top:12px}
+    @media(max-width:1280px){.cards{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}}
+    @media(max-width:980px){.layout{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.filters{grid-template-columns:1fr 1fr}}
+    @media(max-width:680px){.form-grid,.filters,.cards{grid-template-columns:1fr}}
+  </style>
+</head>
+
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>het</h1>
+      <p id="brandMeta">Programming System</p>
+      <p id="versionMeta">Loading...</p>
+    </div>
+    <button class="nav-btn active" onclick="showPanel('dashboardPanel', this)">Dashboard</button>
+    <button class="nav-btn" onclick="showPanel('entryPanel', this)">Entry Form</button>
+    <button class="nav-btn" onclick="showPanel('recordsPanel', this)">Records</button>
+  </aside>
+
+  <main class="content">
+    <div class="topbar">
+      <div>
+        <h2 id="pageTitle">Live Dashboard</h2>
+        <div class="footer-note">Author: (het) Asif Ali</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="reloadAll()">Refresh All</button>
+        <button class="btn btn-primary" onclick="showPanel('entryPanel')">New Entry</button>
+      </div>
+    </div>
+
+    <section id="dashboardPanel" class="panel active">
+      <div class="cards">
+        <div class="card stat"><div class="label">Total Rows</div><div class="value" id="statRows">0</div></div>
+        <div class="card stat"><div class="label">Total Order</div><div class="value" id="statOrder">0</div></div>
+        <div class="card stat"><div class="label">Total Received</div><div class="value" id="statReceived">0</div></div>
+        <div class="card stat"><div class="label">Completed</div><div class="value" id="statCompleted">0</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="card"><div class="card-header"><h3>Stage Distribution</h3></div><div class="card-body chart-box" id="stageChart"></div></div>
+        <div class="card"><div class="card-header"><h3>Top Products</h3></div><div class="card-body chart-box" id="productChart"></div></div>
+        <div class="card"><div class="card-header"><h3>Top Marka</h3></div><div class="card-body chart-box" id="markaChart"></div></div>
+        <div class="card"><div class="card-header"><h3>Factory Summary</h3></div><div class="card-body chart-box" id="factoryChart"></div></div>
+      </div>
+
+      <div class="card recent-box">
+        <div class="card-header"><h3>Recent Entries</h3></div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>SR</th><th>Process Date</th><th>Product</th><th>Marka</th><th>Design</th><th>Total Order</th><th>Stage</th></tr></thead>
+              <tbody id="recentBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="entryPanel" class="panel">
+      <div class="card">
+        <div class="card-header"><h3>Entry Form</h3><div class="footer-note">Fetch API form</div></div>
+        <div class="card-body">
+          <form id="entryForm" onsubmit="saveEntry(event)">
+            <input type="hidden" id="ENTRY_ID">
+            <div class="form-grid">
+              <div class="field"><label>PROCESS DATE *</label><input type="date" id="PROCESS_DATE" required></div>
+              <div class="field"><label>PRODUCT CATEGORY *</label><select id="PRODUCT_CATEGORY" required onchange="onCategoryChange()"></select></div>
+              <div class="field full"><label>PRODUCT NAME *</label><select id="PRODUCT_NAME" required></select></div>
+              <div class="field"><label>FACTORY *</label><select id="FACTORY" required></select></div>
+              <div class="field"><label>MARKA CODE *</label><select id="MARKA_CODE" required onchange="onMarkaChange()"></select></div>
+              <div class="field full"><label>OUTLET NAME Auto</label><input type="text" id="OUTLET_NAME" class="readonly" readonly></div>
+              <div class="field"><label>DESIGN NO *</label><input type="text" id="DESIGN_NO" required></div>
+              <div class="field"><label>COLOUR CODES</label><input type="text" id="COLOUR_CODES"></div>
+              <div class="field"><label>COLOUR COUNT</label><input type="number" min="0" id="COLOUR_COUNT" oninput="computeTotal()"></div>
+              <div class="field"><label>PCS PER COLOUR</label><input type="number" min="0" id="PCS_PER_COLOUR" oninput="computeTotal()"></div>
+              <div class="field"><label>TOTAL ORDER Auto</label><input type="number" id="TOTAL_ORDER" class="readonly" readonly></div>
+              <div class="field"><label>TOTAL Received</label><input type="number" min="0" id="TOTAL_Received"></div>
+              <div class="field"><label>READY DATE</label><input type="date" id="READY_DATE"></div>
+              <div class="field"><label>Send To Tailor</label><input type="date" id="Send_To_Tailor"></div>
+              <div class="field"><label>Recevied From Tailor</label><input type="date" id="Recevied_From_Tailor"></div>
+              <div class="field"><label>SHIPMENT TYPE</label><select id="SHIPMENT_TYPE"></select></div>
+              <div class="field"><label>SHIPMENT NO</label><input type="text" id="SHIPMENT_NO"></div>
+              <div class="field"><label>DISPATCH DATE</label><input type="date" id="DISPATCH_DATE"></div>
+              <div class="field"><label>ARRIVAL DATE</label><input type="date" id="ARRIVAL_DATE"></div>
+              <div class="field"><label>STAGE</label><select id="STAGE"></select></div>
+              <div class="field full"><label>REMARKS</label><textarea id="REMARKS"></textarea></div>
+            </div>
+
+            <div class="actions" style="margin-top:18px">
+              <button class="btn btn-success" type="submit">Save Record</button>
+              <button class="btn btn-secondary" type="button" onclick="resetForm()">Clear Form</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="recordsPanel" class="panel">
+      <div class="card">
+        <div class="card-header"><h3>Records</h3><div class="footer-note">Fast searchable listing</div></div>
+        <div class="card-body">
+          <div class="filters">
+            <input type="text" id="searchBox" placeholder="Search product / marka / design / stage">
+            <select id="filterCategory"></select>
+            <select id="filterStage"></select>
+            <select id="filterMarka"></select>
+            <button class="btn btn-primary" onclick="loadEntries()">Search</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+              <tr>
+                <th>Action</th><th>SR</th><th>Process Date</th><th>Category</th><th>Product</th>
+                <th>Factory</th><th>Marka</th><th>Outlet</th><th>Design</th>
+                <th>Total Order</th><th>Received</th><th>Stage</th>
+              </tr>
+              </thead>
+              <tbody id="recordsBody"><tr><td colspan="12">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="footer-note" id="listSummary">0 records</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="loading" id="loading"><div class="loader">Please wait...</div></div>
+
+<script>
+  const GAS_API_BASE = 'https://script.google.com/macros/s/AKfycbz1u5XMw1oU2xC-ShuuA4AihNK8dgjmSxvPMm62vAPoJigvAbrmIpD7nzCIVC3-KpAi/exec';
+  const GAS_API_TOKEN = 'Lace & Gayle';
+
+  let BOOT = null;
+  let CURRENT_PAGE = 1;
+  let PAGE_SIZE = 100;
+  let LAST_ITEMS = [];
+
+  google.charts.load('current', { packages: ['corechart', 'bar'] });
+  document.addEventListener('DOMContentLoaded', initApp);
+
+  async function gasGet(action, params = {}) {
+    const url = new URL(GAS_API_BASE);
+    url.searchParams.set('action', action);
+    url.searchParams.set('token', GAS_API_TOKEN);
+
+    Object.keys(params || {}).forEach(function (key) {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        url.searchParams.set(key, params[key]);
+      }
+    });
+
+    const res = await fetch(url.toString(), { method: 'GET' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'API request failed');
+    return json.data;
+  }
+
+  async function gasPost(action, payload = {}) {
+    const url = new URL(GAS_API_BASE);
+    url.searchParams.set('action', action);
+    url.searchParams.set('token', GAS_API_TOKEN);
+
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'API request failed');
+    return json.data;
+  }
+
+  function showLoading(show) {
+    document.getElementById('loading').classList.toggle('show', !!show);
+  }
+
+  function showPanel(panelId, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(panelId).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    const titles = { dashboardPanel: 'Live Dashboard', entryPanel: 'Entry Form', recordsPanel: 'Records' };
+    document.getElementById('pageTitle').textContent = titles[panelId] || 'het Programming';
+  }
+
+  async function initApp() {
+    try {
+      showLoading(true);
+      BOOT = await gasGet('product-names');
+      bindBootstrap();
+      resetForm();
+      await loadDashboard();
+      await loadEntries();
+    } catch (err) {
+      alert(err.message || err);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function bindBootstrap() {
+    document.getElementById('brandMeta').textContent = BOOT.appName || 'het Programming System';
+    document.getElementById('versionMeta').textContent = BOOT.version || '';
+
+    fillSelect('PRODUCT_CATEGORY', BOOT.productCategories || [], true, 'Select Category');
+    fillSelect('FACTORY', BOOT.factories || [], true, 'Select Factory');
+    fillSelect('SHIPMENT_TYPE', BOOT.shipmentTypes || [], true, 'Select Shipment Type');
+    fillSelect('STAGE', BOOT.stages || [], true, 'Select Stage');
+
+    fillSelect('filterCategory', [''].concat(BOOT.productCategories || []), false, 'All Category');
+    fillSelect('filterStage', [''].concat(BOOT.stages || []), false, 'All Stage');
+    fillSelect('filterMarka', [''].concat((BOOT.outlets || []).map(x => x.markaCode)), false, 'All Marka');
+
+    const markaSelect = document.getElementById('MARKA_CODE');
+    markaSelect.innerHTML = '<option value="">Select Marka</option>';
+    (BOOT.outlets || []).forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.markaCode;
+      opt.textContent = `${item.markaCode} - ${item.outletName}`;
+      opt.dataset.outlet = item.outletName;
+      markaSelect.appendChild(opt);
+    });
+  }
+
+  function fillSelect(id, items, includePlaceholder, placeholderText) {
+    const select = document.getElementById(id);
+    select.innerHTML = `<option value="">${placeholderText || 'Select'}</option>`;
+    (items || []).forEach(item => {
+      const v = String(item || '').trim();
+      if (!v) return;
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+  }
+
+  function resetForm() {
+    document.getElementById('entryForm').reset();
+    document.getElementById('ENTRY_ID').value = '';
+    document.getElementById('OUTLET_NAME').value = '';
+    document.getElementById('TOTAL_ORDER').value = '';
+    onCategoryChange();
+  }
+
+  function onCategoryChange() {
+    if (!BOOT) return;
+    const category = document.getElementById('PRODUCT_CATEGORY').value;
+    let products = [];
+    if (category === 'Lace') products = BOOT.laceProducts || [];
+    if (category === 'Gayle') products = BOOT.gayleProducts || [];
+    fillSelect('PRODUCT_NAME', products, true, 'Select Product');
+  }
+
+  function onMarkaChange() {
+    const marka = document.getElementById('MARKA_CODE').value;
+    const found = (BOOT.outlets || []).find(x => x.markaCode === marka);
+    document.getElementById('OUTLET_NAME').value = found ? found.outletName : '';
+  }
+
+  function computeTotal() {
+    const a = Number(document.getElementById('COLOUR_COUNT').value || 0);
+    const b = Number(document.getElementById('PCS_PER_COLOUR').value || 0);
+    document.getElementById('TOTAL_ORDER').value = (a > 0 && b > 0) ? (a * b) : '';
+  }
+
+  function convertDisplayDateToInput(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function setDateInput(id, value) {
+    document.getElementById(id).value = convertDisplayDateToInput(value);
+  }
+
+  function getPayload() {
+    return {
+      ENTRY_ID: document.getElementById('ENTRY_ID').value,
+      PROCESS_DATE: document.getElementById('PROCESS_DATE').value,
+      PRODUCT_CATEGORY: document.getElementById('PRODUCT_CATEGORY').value,
+      PRODUCT_NAME: document.getElementById('PRODUCT_NAME').value,
+      FACTORY: document.getElementById('FACTORY').value,
+      MARKA_CODE: document.getElementById('MARKA_CODE').value,
+      DESIGN_NO: document.getElementById('DESIGN_NO').value,
+      COLOUR_CODES: document.getElementById('COLOUR_CODES').value,
+      COLOUR_COUNT: document.getElementById('COLOUR_COUNT').value,
+      PCS_PER_COLOUR: document.getElementById('PCS_PER_COLOUR').value,
+      TOTAL_Received: document.getElementById('TOTAL_Received').value,
+      READY_DATE: document.getElementById('READY_DATE').value,
+      Send_To_Tailor: document.getElementById('Send_To_Tailor').value,
+      Recevied_From_Tailor: document.getElementById('Recevied_From_Tailor').value,
+      SHIPMENT_TYPE: document.getElementById('SHIPMENT_TYPE').value,
+      SHIPMENT_NO: document.getElementById('SHIPMENT_NO').value,
+      DISPATCH_DATE: document.getElementById('DISPATCH_DATE').value,
+      ARRIVAL_DATE: document.getElementById('ARRIVAL_DATE').value,
+      STAGE: document.getElementById('STAGE').value,
+      REMARKS: document.getElementById('REMARKS').value
+    };
+  }
+
+  async function saveEntry(event) {
+    event.preventDefault();
+    try {
+      showLoading(true);
+      const res = await gasPost('save-entry', getPayload());
+      alert(res.message || 'Record saved successfully.');
+      resetForm();
+      await loadDashboard();
+      await loadEntries();
+      showPanel('recordsPanel');
+    } catch (err) {
+      alert(err.message || err);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  async function loadEntries() {
+    try {
+      showLoading(true);
+      const res = await gasGet('records', {
+        q: document.getElementById('searchBox').value,
+        productCategory: document.getElementById('filterCategory').value,
+        stage: document.getElementById('filterStage').value,
+        markaCode: document.getElementById('filterMarka').value,
+        page: CURRENT_PAGE,
+        pageSize: PAGE_SIZE
+      });
+
+      LAST_ITEMS = res.items || [];
+      renderRecords(LAST_ITEMS);
+      document.getElementById('listSummary').textContent = `${res.total || 0} records found`;
+    } catch (err) {
+      alert(err.message || err);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function renderRecords(items) {
+    const body = document.getElementById('recordsBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="12">No records found.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = items.map(item => `
+      <tr>
+        <td><button class="btn btn-primary" type="button" onclick="editRow('${escapeAttr(item.ENTRY_ID)}')">Edit</button></td>
+        <td>${escapeHtml(item.SR)}</td>
+        <td>${escapeHtml(item.PROCESS_DATE)}</td>
+        <td>${escapeHtml(item.PRODUCT_CATEGORY)}</td>
+        <td>${escapeHtml(item.PRODUCT_NAME)}</td>
+        <td>${escapeHtml(item.FACTORY)}</td>
+        <td>${escapeHtml(item.MARKA_CODE)}</td>
+        <td>${escapeHtml(item.OUTLET_NAME)}</td>
+        <td>${escapeHtml(item.DESIGN_NO)}</td>
+        <td>${escapeHtml(item.TOTAL_ORDER)}</td>
+        <td>${escapeHtml(item.TOTAL_Received)}</td>
+        <td><span class="pill ${stageClass(item.STAGE)}">${escapeHtml(item.STAGE)}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function editRow(entryId) {
+    const d = LAST_ITEMS.find(x => String(x.ENTRY_ID || '') === String(entryId || ''));
+    if (!d) {
+      alert('Record not found in current page. Please refresh records.');
+      return;
+    }
+
+    document.getElementById('ENTRY_ID').value = d.ENTRY_ID || '';
+    setDateInput('PROCESS_DATE', d.PROCESS_DATE);
+    document.getElementById('PRODUCT_CATEGORY').value = d.PRODUCT_CATEGORY || '';
+    onCategoryChange();
+    document.getElementById('PRODUCT_NAME').value = d.PRODUCT_NAME || '';
+    document.getElementById('FACTORY').value = d.FACTORY || '';
+    document.getElementById('MARKA_CODE').value = d.MARKA_CODE || '';
+    onMarkaChange();
+    document.getElementById('DESIGN_NO').value = d.DESIGN_NO || '';
+    document.getElementById('COLOUR_CODES').value = d.COLOUR_CODES || '';
+    document.getElementById('COLOUR_COUNT').value = d.COLOUR_COUNT || '';
+    document.getElementById('PCS_PER_COLOUR').value = d.PCS_PER_COLOUR || '';
+    document.getElementById('TOTAL_ORDER').value = d.TOTAL_ORDER || '';
+    document.getElementById('TOTAL_Received').value = d.TOTAL_Received || '';
+    setDateInput('READY_DATE', d.READY_DATE);
+    setDateInput('Send_To_Tailor', d.Send_To_Tailor);
+    setDateInput('Recevied_From_Tailor', d.Recevied_From_Tailor);
+    document.getElementById('SHIPMENT_TYPE').value = d.SHIPMENT_TYPE || '';
+    document.getElementById('SHIPMENT_NO').value = d.SHIPMENT_NO || '';
+    setDateInput('DISPATCH_DATE', d.DISPATCH_DATE);
+    setDateInput('ARRIVAL_DATE', d.ARRIVAL_DATE);
+    document.getElementById('STAGE').value = d.STAGE || '';
+    document.getElementById('REMARKS').value = d.REMARKS || '';
+    computeTotal();
+    showPanel('entryPanel');
+  }
+
+  async function loadDashboard() {
+    try {
+      const data = await gasGet('dashboard');
+      google.charts.setOnLoadCallback(function () {
+        renderDashboard(data);
+      });
+    } catch (err) {
+      alert(err.message || err);
+    }
+  }
+
+  function renderDashboard(data) {
+    document.getElementById('statRows').textContent = formatNumber(data.totals.rows);
+    document.getElementById('statOrder').textContent = formatNumber(data.totals.order);
+    document.getElementById('statReceived').textContent = formatNumber(data.totals.received);
+    document.getElementById('statCompleted').textContent = formatNumber(data.totals.completed);
+    renderRecent(data.recent || []);
+    drawStageChart(data.stageCounts || {});
+    drawKeyValueChart('productChart', 'Top Products', data.byProduct || {}, 'bar');
+    drawKeyValueChart('markaChart', 'Top Marka', data.byMarka || {}, 'column');
+    drawKeyValueChart('factoryChart', 'Factory Summary', data.byFactory || {}, 'pie');
+  }
+
+  function renderRecent(items) {
+    const body = document.getElementById('recentBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="7">No recent records.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = items.map(item => `
+      <tr>
+        <td>${escapeHtml(item.SR)}</td>
+        <td>${escapeHtml(item.PROCESS_DATE)}</td>
+        <td>${escapeHtml(item.PRODUCT_NAME)}</td>
+        <td>${escapeHtml(item.MARKA_CODE)}</td>
+        <td>${escapeHtml(item.DESIGN_NO)}</td>
+        <td>${escapeHtml(item.TOTAL_ORDER)}</td>
+        <td><span class="pill ${stageClass(item.STAGE)}">${escapeHtml(item.STAGE)}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function drawStageChart(stageCounts) {
+    const rows = [
+      ['Stage', 'Count'],
+      ['PROCESS', Number(stageCounts.PROCESS || 0)],
+      ['READY', Number(stageCounts.READY || 0)],
+      ['ON_THE_WAY', Number(stageCounts.ON_THE_WAY || 0)],
+      ['COMPLETED', Number(stageCounts.COMPLETED || 0)]
+    ];
+
+    const data = google.visualization.arrayToDataTable(rows);
+    new google.visualization.PieChart(document.getElementById('stageChart')).draw(data, {
+      pieHole: 0.35,
+      colors: ['#1d4ed8', '#16a34a', '#d97706', '#7c3aed'],
+      legend: { position: 'right' },
+      chartArea: { width: '90%', height: '80%' }
+    });
+  }
+
+  function drawKeyValueChart(elementId, title, obj, type) {
+    const entries = Object.keys(obj)
+      .map(k => [k, Number(obj[k] || 0)])
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    if (!entries.length) {
+      document.getElementById(elementId).innerHTML = '<div class="footer-note">No data</div>';
+      return;
+    }
+
+    const data = google.visualization.arrayToDataTable([['Label', 'Value']].concat(entries));
+    const el = document.getElementById(elementId);
+    const common = { title, chartArea: { width: '72%', height: '70%' }, legend: { position: type === 'pie' ? 'right' : 'none' } };
+
+    if (type === 'bar') new google.visualization.BarChart(el).draw(data, Object.assign({}, common, { colors: ['#16a34a'] }));
+    else if (type === 'column') new google.visualization.ColumnChart(el).draw(data, Object.assign({}, common, { colors: ['#f59e0b'] }));
+    else new google.visualization.PieChart(el).draw(data, Object.assign({}, common, { colors: ['#7c3aed', '#0891b2', '#16a34a', '#f59e0b', '#184e7a'] }));
+  }
+
+  async function reloadAll() {
+    showLoading(true);
+    await loadDashboard();
+    await loadEntries();
+    showLoading(false);
+  }
+
+  function stageClass(stage) {
+    const key = String(stage || '').toLowerCase();
+    if (key === 'process') return 'stage-process';
+    if (key === 'ready') return 'stage-ready';
+    if (key === 'on_the_way') return 'stage-on_the_way';
+    if (key === 'completed') return 'stage-completed';
+    return 'stage-process';
+  }
+
+  function formatNumber(value) {
+    return Number(value || 0).toLocaleString();
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeAttr(value) {
+    return String(value == null ? '' : value).replace(/'/g, '&#039;').replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

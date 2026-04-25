@@ -1,0 +1,17 @@
+{
+  "name": "Het Enterprise Database",
+  "short_name": "Het DB",
+  "description": "Enterprise SaaS data platform for Men Material and Lace & Gayle",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

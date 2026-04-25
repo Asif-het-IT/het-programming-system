@@ -1,0 +1,343 @@
+{
+  "menMaterial": [
+    {
+      "viewName": "Summary",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1WjbvlRbd3AMfe5jE0oMuYxE7W7ARH8xO6BWBZgLivZQ/export?format=csv&gid=270821011",
+      "targetSheetName": "DATA",
+      "columnsList": ["A", "B", "C", "D", "J", "R", "AD"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Brand Wise Report",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/11s0PyuXO5Zn0vBQ4xs3dOvnR-9mp6bJit9GQyjiYD5g/export?format=csv&gid=0",
+      "targetSheetName": "DATA",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "M", "N", "S", "T", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Management Report",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1ZsU_QXWH0ooVnCk-lb3d4SYqvT9oZiPBJl5o1bHq1KI/export?format=csv&gid=887481872",
+      "targetSheetName": "DATA",
+      "columnsList": ["A", "B", "D", "E", "F", "G", "H", "I", "J", "M", "N", "O", "P", "S", "T", "U", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Programming View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1jBqNKFffGOqw5lY8dNMBAyQ9-WwQIA_YuO71HtuEnsM/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AK", "AL", "AM", "AN", "AO", "AP", "AK", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Fazal View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1fK7Xl_39sgArBvunIbB_-Brz8DuZOe0d3YYN8n8sLFI/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AM", "AN", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Dua View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1mrd_ijbzN6J869rlze0q6G6J_qkrQLI2OzWvGugFg3c/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AM", "AN", "AW", "AX", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Sattar View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1Un7rlpk4ylWcRWRFif2rj-NVjpn2yYv5TPAtkU0WGII/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AO", "AP", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Dxb View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1cY9_ncssoXMX31AXGRoHbMViR1BCkMfsfzpJ85M4nTM/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AK", "AL", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Salam View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/19e2HLwAy-yg6VABQIBY1ZTvwBY75V50o5ZuLzgk1sSE/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AO", "AP", "AS", "AT", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "World View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1wBpcenfn5sqsLAkAW15Jwi-enpelROzGi7_kzFadxM8/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AM", "AN", "AQ", "AR", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Noor View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/11UtDMrWZM360Z8rwnxmnuz7pHleOh2cNfR-XY_8c4ro/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AM", "AN", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Hope View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/18WGtBS_bgqBBqiKsmoiBfh7egwteRXvjJUecka1A2Q4/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AM", "AN", "AU", "AV", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    },
+    {
+      "viewName": "Fashion Fussion View",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1F0LUzw7XhGa3FqZT_G6HhWqajsesxi1fO-lSWgajRvo/export?format=csv&gid=0",
+      "targetSheetName": "MEN MATERIAL",
+      "columnsList": ["A", "B", "C", "D", "E", "H", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "AD", "AM", "AN", "AQ", "AR", "AY"],
+      "filterColumn": null,
+      "filterValue": null,
+      "database": "MEN_MATERIAL"
+    }
+  ],
+  "laceGayle": [
+    {
+      "viewName": "Ambariyya Global Investment NIG Ltd - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1jBqNKFffGOqw5lY8dNMBAyQ9-WwQIA_YuO71HtuEnsM/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["KKK", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Ambariyya Global Investment NIG Ltd - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1jBqNKFffGOqw5lY8dNMBAyQ9-WwQIA_YuO71HtuEnsM/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["KKK", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Dua Trading & General Merchant Ltd - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1mrd_ijbzN6J869rlze0q6G6J_qkrQLI2OzWvGugFg3c/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["LLL", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Dua Trading & General Merchant Ltd - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1mrd_ijbzN6J869rlze0q6G6J_qkrQLI2OzWvGugFg3c/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["LLL", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "ETS Sattar - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1Un7rlpk4ylWcRWRFif2rj-NVjpn2yYv5TPAtkU0WGII/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["SSS", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "ETS Sattar - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1Un7rlpk4ylWcRWRFif2rj-NVjpn2yYv5TPAtkU0WGII/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["SSS", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Fashion Fusion - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1F0LUzw7XhGa3FqZT_G6HhWqajsesxi1fO-lSWgajRvo/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["FFF", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Fashion Fusion - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1F0LUzw7XhGa3FqZT_G6HhWqajsesxi1fO-lSWgajRvo/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["FFF", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Fazal Investment NIG Ltd - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1fK7Xl_39sgArBvunIbB_-Brz8DuZOe0d3YYN8n8sLFI/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["AAA", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Fazal Investment NIG Ltd - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1fK7Xl_39sgArBvunIbB_-Brz8DuZOe0d3YYN8n8sLFI/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["AAA", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "HARISH EXIM GENERAL TRADING L.L.C - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1cY9_ncssoXMX31AXGRoHbMViR1BCkMfsfzpJ85M4nTM/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["LLC", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "HARISH EXIM GENERAL TRADING L.L.C - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1cY9_ncssoXMX31AXGRoHbMViR1BCkMfsfzpJ85M4nTM/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["LLC", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "HARISH EXIM TRADING FZC - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1jBqNKFffGOqw5lY8dNMBAyQ9-WwQIA_YuO71HtuEnsM/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["FZC", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "HARISH EXIM TRADING FZC - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1jBqNKFffGOqw5lY8dNMBAyQ9-WwQIA_YuO71HtuEnsM/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["FZC", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Hope Textile Cameroon SARL - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/18WGtBS_bgqBBqiKsmoiBfh7egwteRXvjJUecka1A2Q4/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["CCC", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Hope Textile Cameroon SARL - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/18WGtBS_bgqBBqiKsmoiBfh7egwteRXvjJUecka1A2Q4/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["CCC", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Noor Import & Export Ltd - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/11UtDMrWZM360Z8rwnxmnuz7pHleOh2cNfR-XY_8c4ro/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["BBB", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Noor Import & Export Ltd - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/11UtDMrWZM360Z8rwnxmnuz7pHleOh2cNfR-XY_8c4ro/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["BBB", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Salam Textiles - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/19e2HLwAy-yg6VABQIBY1ZTvwBY75V50o5ZuLzgk1sSE/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["MMM", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "Salam Textiles - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/19e2HLwAy-yg6VABQIBY1ZTvwBY75V50o5ZuLzgk1sSE/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["MMM", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "World Textile Sarl - Gayle",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1wBpcenfn5sqsLAkAW15Jwi-enpelROzGi7_kzFadxM8/export?format=csv&gid=0",
+      "targetSheetName": "Gayle",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["TTT", "Gayle"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    },
+    {
+      "viewName": "World Textile Sarl - Lace",
+      "targetUrl": "https://docs.google.com/spreadsheets/d/1wBpcenfn5sqsLAkAW15Jwi-enpelROzGi7_kzFadxM8/export?format=csv&gid=0",
+      "targetSheetName": "Lace",
+      "columnsList": ["A", "B", "D", "E", "H", "I", "J", "K", "L", "M", "N", "Q", "R", "S", "T", "U", "V"],
+      "filterColumn": ["MARKA_CODE", "PRODUCT_CATEGORY"],
+      "filterValue": ["TTT", "Lace"],
+      "database": "LACE_GAYLE",
+      "startRow": 2
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+name = "het-gas-proxy"
+main = "src/index.js"
+compatibility_date = "2026-04-25"
+
+[vars]
+ALLOWED_ORIGIN = "http://localhost:5173"
+
+# Set secrets with:
+# wrangler secret put PROXY_AUTH_TOKEN
+# wrangler secret put GAS_LACE_URL
+# wrangler secret put GAS_MEN_URL
+# wrangler secret put GAS_LACE_TOKEN
+# wrangler secret put GAS_MEN_TOKEN
