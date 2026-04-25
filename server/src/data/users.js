@@ -2,28 +2,33 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
+import { env } from '../config/env.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const storageDir = path.resolve(__dirname, '../../storage');
 const usersFilePath = path.join(storageDir, 'users-db.json');
 
-// ---------- Bootstrap seed (only used when users-db.json does not exist) ----------
-// Admin panel manages all users after initial setup.
-// Passwords here are only used once during first-run seeding — they are hashed and
-// the plaintext is never stored. All users and their settings should be managed
-// through the Admin Panel after initial deployment.
-const SEED_USERS = [
-  {
-    id: 'u_admin',
-    email: 'admin@het.local',
-    password: 'admin123',
-    role: 'admin',
-    databases: ['MEN_MATERIAL', 'LACE_GAYLE'],
-    views: ['*'],
-    disabled: false,
-  },
-];
+function getBootstrapUsers() {
+  const email = String(env.bootstrapAdminEmail || '').trim();
+  const password = String(env.bootstrapAdminPassword || '').trim();
+
+  if (!email || !password) {
+    return [];
+  }
+
+  return [
+    {
+      id: 'u_admin',
+      email,
+      password,
+      role: 'admin',
+      databases: ['MEN_MATERIAL', 'LACE_GAYLE'],
+      views: ['*'],
+      disabled: false,
+    },
+  ];
+}
 
 // ---------- Persistence helpers ----------
 
@@ -67,12 +72,14 @@ export async function initUsers() {
   const db = readUsersDb();
 
   if (db.users.length === 0) {
-    // First run: hash seed passwords and persist
-    for (const seed of SEED_USERS) {
+    const bootstrapUsers = getBootstrapUsers();
+    for (const seed of bootstrapUsers) {
       const hash = await bcrypt.hash(seed.password, 10);
       users.push({ ...seed, password: undefined, passwordHash: hash });
     }
-    writeUsersDb(users);
+    if (users.length > 0) {
+      writeUsersDb(users);
+    }
   } else {
     users = db.users;
   }

@@ -19,8 +19,10 @@ A production-ready enterprise data platform connecting React 18 to Google Sheets
 npm install
 
 # 2. Configure environment
-cp .env.example server/.env
-# Edit server/.env with your values (see docs/DEPLOYMENT_GUIDE.md)
+cp server/.env.example server/.env
+# Optional first-run bootstrap only:
+# set BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD in server/.env
+# then remove them after the admin account is created.
 
 # 3. Start development — two terminals required
 npm run dev        # Frontend  → http://localhost:5173
@@ -32,17 +34,18 @@ npm run build
 
 ---
 
-## Default Accounts (development only)
+## User Bootstrap
 
-| Email | Password | Role | Database |
-|---|---|---|---|
-| admin@het.local | admin123 | admin | Both |
-| dua@het.local | dua123 | user | LACE_GAYLE |
-| noor@het.local | noor123 | user | LACE_GAYLE |
-| fazal@het.local | fazal123 | user | LACE_GAYLE |
-| sattar@het.local | sattar123 | user | LACE_GAYLE |
+The repository ships with no built-in users.
 
-> **Production:** Change all passwords before deployment.
+On a fresh environment, create the first admin by setting these temporary values in `server/.env` before the first API startup:
+
+```env
+BOOTSTRAP_ADMIN_EMAIL=your-admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=choose-a-strong-password
+```
+
+After the first admin account is created and persisted, remove both variables from `server/.env`. All later user creation and access assignment happens through the admin panel.
 
 ---
 

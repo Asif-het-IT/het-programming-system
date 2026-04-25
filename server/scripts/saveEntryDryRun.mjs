@@ -16,9 +16,13 @@ async function login(email, password) {
 
 async function run() {
   const email = process.env.TEST_USER_EMAIL || 'dua@het.local';
-  const password = process.env.TEST_USER_PASSWORD || 'dua123';
+  const password = process.env.TEST_USER_PASSWORD;
   const database = process.env.TEST_DATABASE || 'MEN_MATERIAL';
   const view = process.env.TEST_VIEW || 'Dua View';
+
+  if (!password) {
+    throw new Error('TEST_USER_PASSWORD is required for saveEntryDryRun');
+  }
 
   const token = await login(email, password);
 
@@ -53,7 +57,9 @@ async function run() {
   }
 }
 
-run().catch((error) => {
+try {
+  await run();
+} catch (error) {
   console.error(error.message);
   process.exitCode = 1;
-});
+}

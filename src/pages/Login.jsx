@@ -8,8 +8,8 @@ import { AlertCircle, LogIn } from "lucide-react";
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState("dua@het.local");
-  const [password, setPassword] = useState("dua123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -37,14 +37,6 @@ export default function Login() {
     }
   };
 
-  const demoCredentials = [
-    { email: "dua@het.local", password: "dua123", label: "Dua View" },
-    { email: "fazal@het.local", password: "fazal123", label: "Fazal View" },
-    { email: "sattar@het.local", password: "sattar123", label: "Sattar View" },
-    { email: "noor@het.local", password: "noor123", label: "Noor View" },
-    { email: "admin@het.local", password: "admin123", label: "Admin" }
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -59,10 +51,11 @@ export default function Login() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Email
               </label>
               <Input
+                id="login-email"
                 type="email"
                 placeholder="e.g. user@het.local"
                 value={email}
@@ -74,10 +67,11 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Password
               </label>
               <Input
+                id="login-password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
@@ -102,26 +96,6 @@ export default function Login() {
               {loading ? "Login ho raha hai..." : "Login"}
             </Button>
           </form>
-
-          <div className="mt-8 pt-8 border-t border-slate-200">
-            <p className="text-xs font-medium text-slate-600 mb-3 block">Demo Credentials:</p>
-            <div className="grid grid-cols-1 gap-2">
-              {demoCredentials.map((cred) => (
-                <button
-                  key={cred.email}
-                  type="button"
-                  onClick={() => {
-                    setEmail(cred.email);
-                    setPassword(cred.password);
-                  }}
-                  className="text-left px-3 py-2 rounded-lg text-xs hover:bg-slate-100 transition-colors"
-                >
-                  <span className="font-medium text-slate-700">{cred.label}</span>
-                  <span className="text-slate-500 ml-2">({cred.email})</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">

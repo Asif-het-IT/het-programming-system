@@ -24,12 +24,12 @@ Access: **http://localhost:5174/**
 
 ## 2️⃣ Login
 
-Click one of the demo credential buttons or manually enter:
+Create or bootstrap an admin first, then log in manually:
 
-| Username | Password | Type |
-|----------|----------|------|
-| `dua` | `dua123` | Regular User |
-| `admin` | `admin123` | Administrator |
+| Account | How to create it | Type |
+|----------|------------------|------|
+| Bootstrap admin | Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` in `server/.env` before first startup | Administrator |
+| Additional users | Create from Admin Panel after first login | User/Admin |
 
 **Expected:** Redirects to dashboard (user) or admin panel (admin)
 
@@ -74,23 +74,23 @@ Click one of the demo credential buttons or manually enter:
 
 ## 4️⃣ Test Admin Panel
 
-1. Login as `admin / admin123`
+1. Login as your bootstrap admin
 2. Click "Admin Panel" in sidebar
 
 ### Users Tab
-- See 5 users listed (dua, fazal, sattar, noor, admin)
-- Each has assigned views
-- Buttons to delete users
+- See the current admin-created users listed
+- Each has assigned views and role metadata
+- Buttons to disable, reset password, or delete where allowed
 
 **Check:**
-- ✅ All 5 users visible
+- ✅ Admin account visible
 - ✅ Roles correct (user/admin)
-- ✅ View counts match config
+- ✅ View counts match assigned access
 
 ### Add New User
 1. Fill form:
-   - Username: `testuser`
-   - Password: `test123`
+   - Email: `testuser@example.com`
+   - Password: choose a test password
    - Check "Dua View" checkbox
 2. Click "Add User"
 

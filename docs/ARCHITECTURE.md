@@ -181,9 +181,9 @@ Main spreadsheet with:
 3. Backend: requireAuth → verifies JWT, reads user.views → checks "Dua Trading... - Lace" is assigned
 4. Backend: viewConfigService.getViewConfigFromSource() → calls GAS view-config → returns Settings row
    { view: "Dua Trading...", sheetName: "Lace", filterColumns: ["MARKA_CODE","PRODUCT_CATEGORY"], filterValues: ["LLL","Lace"], columnsList: ["A","B","D","E","H",...] }
-5. Backend: calls GAS records via Cloudflare Worker (Worker adds GAS auth, forwards to GAS)
-6. GAS: filters rows where MARKA_CODE=LLL AND PRODUCT_CATEGORY=Lace, returns paginated response
-7. Backend: alignRecordsToView() projects response to only allowed columns from Settings
-8. Backend: returns projected, filtered records as JSON
+5. Backend: for `LACE_GAYLE`, calls GAS `view-output` via Cloudflare Worker using the resolved Settings row
+6. GAS: opens the per-outlet spreadsheet URL from Settings and reads the `Lace` target sheet directly
+7. Backend: projects the returned rows to only the allowed columns from Settings
+8. Backend: returns projected records as JSON
 9. React: renders virtualised table — user sees only their authorised data
 ```

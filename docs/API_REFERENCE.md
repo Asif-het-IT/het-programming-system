@@ -14,8 +14,8 @@ Authenticate a user and receive access and refresh tokens.
 
 ```json
 {
-  "email": "dua@het.local",
-  "password": "dua123"
+  "email": "admin@your-domain.com",
+  "password": "<your_password>"
 }
 ```
 
@@ -26,11 +26,11 @@ Authenticate a user and receive access and refresh tokens.
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "id": "dua",
-    "email": "dua@het.local",
-    "role": "user",
-    "databases": ["LACE_GAYLE"],
-    "views": ["Dua Trading & ... - Lace", "Dua Trading & ... - Gayle"]
+    "id": "u_1234567890",
+    "email": "admin@your-domain.com",
+    "role": "admin",
+    "databases": ["MEN_MATERIAL", "LACE_GAYLE"],
+    "views": ["*"]
   }
 }
 ```

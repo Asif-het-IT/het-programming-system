@@ -36,6 +36,10 @@ cp .env.example server/.env
 API_PORT=3001
 CORS_ORIGINS=http://localhost:5173
 
+# First startup only. Remove both values after the first admin account exists.
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=<strong temporary password>
+
 JWT_ACCESS_SECRET=<generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
 JWT_REFRESH_SECRET=<generate another random 32-byte hex>
 JWT_ACCESS_TTL=15m
@@ -118,6 +122,10 @@ npm install --omit=dev
 NODE_ENV=production
 API_PORT=3001
 CORS_ORIGINS=https://programing.hetdubai.com
+
+# First production startup only. Remove both values after admin bootstrap succeeds.
+BOOTSTRAP_ADMIN_EMAIL=admin@your-domain.com
+BOOTSTRAP_ADMIN_PASSWORD=<strong temporary password>
 
 JWT_ACCESS_SECRET=<32-byte random hex — DIFFERENT from dev>
 JWT_REFRESH_SECRET=<32-byte random hex — DIFFERENT from dev>
@@ -208,6 +216,12 @@ wrangler secret put GAS_MEN_TOKEN       # MEN GAS auth token
 wrangler secret put GAS_LACE_TOKEN      # LACE GAS auth token
 ```
 
+Confirm the Worker is using secrets rather than checked-in values:
+
+```bash
+wrangler secret list
+```
+
 ### Update Worker allowed origin
 
 Edit `cloudflare-worker/wrangler.toml`:
@@ -218,6 +232,8 @@ ALLOWED_ORIGIN = "https://programing.hetdubai.com"
 ```
 
 Then redeploy: `wrangler deploy`
+
+> Use only production GAS deployment URLs in Worker secrets and in `server/.env`. Do not point production to test or development GAS deployments.
 
 ---
 

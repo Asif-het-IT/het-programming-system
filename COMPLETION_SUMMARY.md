@@ -136,17 +136,16 @@
 
 ---
 
-## 👥 User Accounts (Pre-Configured)
+## 👥 User Accounts
 
-| Username | Password | Role | Views |
-|----------|----------|------|-------|
-| dua | dua123 | User | 3 Dua-specific views |
-| fazal | fazal123 | User | 3 Fazal-specific views |
-| sattar | sattar123 | User | 3 Sattar-specific views |
-| noor | noor123 | User | 3 Noor-specific views |
-| admin | admin123 | Admin | All 36 views |
+User accounts are no longer shipped pre-configured in code.
 
-**Note:** These are demo credentials. For production, update in `src/lib/userConfig.js` and communicate new credentials to users.
+| Account Type | Provisioning Method | Views |
+|--------------|---------------------|-------|
+| Initial admin | Temporary `BOOTSTRAP_ADMIN_*` env vars on first startup | Full admin access |
+| All later users | Created from the Admin Panel | Assigned per user |
+
+**Note:** The production handoff repository contains no embedded user passwords or demo accounts.
 
 ---
 
