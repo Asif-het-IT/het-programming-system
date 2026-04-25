@@ -28,7 +28,7 @@ export default function UserAccess() {
   const handleAddUser = async () => {
     setUserError("");
     if (!newUser.full_name || !newUser.email || !newUser.password) { setUserError("All fields required"); return; }
-    if (users.find(u => u.email === newUser.email)) { setUserError("Email already exists"); return; }
+    if (users.some(u => u.email === newUser.email)) { setUserError("Email already exists"); return; }
     try {
       await addUser(newUser);
       setNewUser({ full_name: "", email: "", password: "", role: "user" });
@@ -114,23 +114,23 @@ export default function UserAccess() {
               {userError && <p className="text-xs text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg">{userError}</p>}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] text-muted-foreground font-medium block mb-1">Full Name</label>
-                  <Input value={newUser.full_name} onChange={e => setNewUser(u => ({ ...u, full_name: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="John Doe" />
+                  <label htmlFor="new-user-full-name" className="text-[11px] text-muted-foreground font-medium block mb-1">Full Name</label>
+                  <Input id="new-user-full-name" value={newUser.full_name} onChange={e => setNewUser(u => ({ ...u, full_name: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="John Doe" />
                 </div>
                 <div>
-                  <label className="text-[11px] text-muted-foreground font-medium block mb-1">Email</label>
-                  <Input type="email" value={newUser.email} onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="john@example.com" />
+                  <label htmlFor="new-user-email" className="text-[11px] text-muted-foreground font-medium block mb-1">Email</label>
+                  <Input id="new-user-email" type="email" value={newUser.email} onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="john@example.com" />
                 </div>
                 <div className="relative">
-                  <label className="text-[11px] text-muted-foreground font-medium block mb-1">Password</label>
-                  <Input type={showPw ? "text" : "password"} value={newUser.password} onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))} className="h-8 text-xs bg-secondary border-border pr-8" placeholder="Min 6 chars" />
-                  <button onClick={() => setShowPw(s => !s)} className="absolute right-2 top-6 text-muted-foreground">
+                  <label htmlFor="new-user-password" className="text-[11px] text-muted-foreground font-medium block mb-1">Password</label>
+                  <Input id="new-user-password" type={showPw ? "text" : "password"} value={newUser.password} onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))} className="h-8 text-xs bg-secondary border-border pr-8" placeholder="Min 6 chars" />
+                  <button type="button" onClick={() => setShowPw(s => !s)} className="absolute right-2 top-6 text-muted-foreground">
                     {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
                 </div>
                 <div>
-                  <label className="text-[11px] text-muted-foreground font-medium block mb-1">Role</label>
-                  <select value={newUser.role} onChange={e => setNewUser(u => ({ ...u, role: e.target.value }))}
+                  <label htmlFor="new-user-role" className="text-[11px] text-muted-foreground font-medium block mb-1">Role</label>
+                  <select id="new-user-role" value={newUser.role} onChange={e => setNewUser(u => ({ ...u, role: e.target.value }))}
                     className="h-8 w-full rounded-md border border-border bg-secondary px-2 text-xs text-foreground">
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
@@ -155,17 +155,17 @@ export default function UserAccess() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] text-muted-foreground font-medium block mb-1">View Name</label>
-                  <Input value={newView.name} onChange={e => setNewView(v => ({ ...v, name: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="e.g. Party Summary" />
+                  <label htmlFor="new-view-name" className="text-[11px] text-muted-foreground font-medium block mb-1">View Name</label>
+                  <Input id="new-view-name" value={newView.name} onChange={e => setNewView(v => ({ ...v, name: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="e.g. Party Summary" />
                 </div>
                 <div>
-                  <label className="text-[11px] text-muted-foreground font-medium block mb-1">Assign to User (email)</label>
-                  <Input value={newView.userId} onChange={e => setNewView(v => ({ ...v, userId: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="user@example.com" />
+                  <label htmlFor="new-view-user-email" className="text-[11px] text-muted-foreground font-medium block mb-1">Assign to User (email)</label>
+                  <Input id="new-view-user-email" value={newView.userId} onChange={e => setNewView(v => ({ ...v, userId: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="user@example.com" />
                 </div>
               </div>
               <div>
-                <label className="text-[11px] text-muted-foreground font-medium block mb-1">Description</label>
-                <Input value={newView.description} onChange={e => setNewView(v => ({ ...v, description: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="View purpose" />
+                <label htmlFor="new-view-description" className="text-[11px] text-muted-foreground font-medium block mb-1">Description</label>
+                <Input id="new-view-description" value={newView.description} onChange={e => setNewView(v => ({ ...v, description: e.target.value }))} className="h-8 text-xs bg-secondary border-border" placeholder="View purpose" />
               </div>
               {viewError && <p className="text-xs text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg">{viewError}</p>}
               <div>
@@ -174,7 +174,7 @@ export default function UserAccess() {
                 </label>
                 <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
                   {Object.entries(AVAILABLE_FIELDS).map(([fieldKey, fieldInfo]) => (
-                    <button key={fieldKey} onClick={() => toggleField(fieldKey)}
+                    <button type="button" key={fieldKey} onClick={() => toggleField(fieldKey)}
                       className={`px-2 py-1 rounded text-[10px] font-medium border transition-all ${
                         newView.fields.includes(fieldKey)
                           ? "bg-primary/20 text-primary border-primary/40"
@@ -207,7 +207,7 @@ export default function UserAccess() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u, i) => (
+                {users.map((u) => (
                   <tr key={u.id} className="border-t border-border hover:bg-secondary/40">
                     <td className="px-4 py-3 font-medium text-foreground">{u.full_name}</td>
                     <td className="px-4 py-3 text-muted-foreground font-mono text-[10px]">{u.email}</td>

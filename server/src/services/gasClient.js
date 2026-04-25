@@ -1,5 +1,5 @@
 import { env } from '../config/env.js';
-import { getCache, setCache } from './cache.js';
+import { clearCache, getCache, setCache } from './cache.js';
 
 function resolveGasTarget(params = {}) {
   const database = String(params.database || '').toUpperCase();
@@ -99,7 +99,7 @@ async function parseGasJsonResponse(response, api) {
   }
 }
 
-async function callGasGet(api, params = {}, useCache = true) {
+async function callGasGet(api, params = {}, useCache = true, ttlMs = env.cacheTtlMs) {
   enforceProxyPolicy();
   const cacheKey = `GET:${api}:${JSON.stringify(params)}`;
 
@@ -140,7 +140,7 @@ async function callGasGet(api, params = {}, useCache = true) {
   }
 
   const data = await parseGasJsonResponse(response, api);
-  setCache(cacheKey, data, env.cacheTtlMs);
+  setCache(cacheKey, data, ttlMs);
   return data;
 }
 
@@ -181,7 +181,10 @@ async function callGasPost(api, body = {}, query = {}) {
     });
   }
 
-  return parseGasJsonResponse(response, api);
+  const data = await parseGasJsonResponse(response, api);
+  // Writes invalidate read-side caches so users see updated records quickly.
+  clearCache();
+  return data;
 }
 
 export async function fetchDataFromGas(payload) {
@@ -205,7 +208,9 @@ export async function fetchViewConfigFromGas(payload) {
 }
 
 export async function fetchViewOutputFromGas(payload) {
-  return callGasGet('view-output', payload, false);
+  // view-output is expensive for LACE_GAYLE; a short cache window improves response time
+  // without changing authorization or projection logic.
+  return callGasGet('view-output', payload, true, Math.min(env.cacheTtlMs, 30000));
 }
 
 export async function saveEntryToGas(body, query = {}) {

@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, Package, DollarSign, Clock, AlertTriangle, CheckCircle, Truck, BarChart2 } from "lucide-react";
+import PropTypes from "prop-types";
 
 const iconMap = {
   TrendingUp, Package, DollarSign, Clock, AlertTriangle, CheckCircle, Truck, BarChart2,
@@ -55,3 +56,12 @@ export default function StatCard({ icon, label, value, sub, color = "blue", inde
     </motion.div>
   );
 }
+
+StatCard.propTypes = {
+  icon: PropTypes.string,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  sub: PropTypes.string,
+  color: PropTypes.string,
+  index: PropTypes.number,
+};

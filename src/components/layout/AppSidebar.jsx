@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PropTypes from "prop-types";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,6 +26,7 @@ export default function AppSidebar({ children }) {
   const location = useLocation();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const isExpanded = !collapsed;
 
   const visibleNav = NAV.filter(n => !n.adminOnly || isAdmin);
 
@@ -36,7 +38,7 @@ export default function AppSidebar({ children }) {
           <span className="text-primary font-bold text-sm">H</span>
         </div>
         <AnimatePresence>
-          {!collapsed && (
+          {isExpanded && (
             <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} className="overflow-hidden whitespace-nowrap">
               <p className="text-sm font-bold text-foreground">het</p>
               <p className="text-[10px] text-muted-foreground">Programming Database</p>
@@ -64,7 +66,7 @@ export default function AppSidebar({ children }) {
             >
               <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? "text-primary" : ""}`} />
               <AnimatePresence>
-                {!collapsed && (
+                {isExpanded && (
                   <motion.span initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} className="overflow-hidden whitespace-nowrap">
                     {item.label}
                   </motion.span>
@@ -77,7 +79,7 @@ export default function AppSidebar({ children }) {
 
       {/* User */}
       <div className={`p-3 border-t border-border ${collapsed ? "flex justify-center" : ""}`}>
-        {!collapsed ? (
+        {isExpanded ? (
           <div className="flex items-center gap-3 px-2 py-2">
             <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center text-[11px] font-bold text-primary flex-shrink-0">
               {(user?.full_name || user?.email || "U")[0].toUpperCase()}
@@ -96,6 +98,7 @@ export default function AppSidebar({ children }) {
       </div>
 
       <button
+        type="button"
         onClick={() => setCollapsed(c => !c)}
         className="hidden lg:flex items-center justify-center h-8 w-8 rounded-lg bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground transition-colors mx-auto mb-3"
       >
@@ -125,7 +128,7 @@ export default function AppSidebar({ children }) {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed top-0 left-0 h-full w-64 bg-card border-r border-border z-30 lg:hidden"
           >
-            <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 text-muted-foreground">
+            <button type="button" onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 text-muted-foreground">
               <X className="h-4 w-4" />
             </button>
             <SidebarContent />
@@ -146,7 +149,7 @@ export default function AppSidebar({ children }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile top bar */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
-          <button onClick={() => setMobileOpen(true)}>
+          <button type="button" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
           <p className="text-sm font-bold text-foreground">Programming Database</p>
@@ -159,3 +162,7 @@ export default function AppSidebar({ children }) {
     </div>
   );
 }
+
+AppSidebar.propTypes = {
+  children: PropTypes.node.isRequired,
+};

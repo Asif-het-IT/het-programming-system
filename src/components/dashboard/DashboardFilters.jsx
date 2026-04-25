@@ -2,6 +2,7 @@ import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, SlidersHorizontal } from "lucide-react";
+import PropTypes from "prop-types";
 
 export const EMPTY_FILTERS = {
   category: "all",
@@ -13,7 +14,7 @@ export const EMPTY_FILTERS = {
 };
 
 export default function DashboardFilters({ orders, filters, onChange }) {
-  const uniq = (key) => [...new Set(orders.map(o => o[key]).filter(Boolean))].sort();
+  const uniq = (key) => [...new Set(orders.map(o => o[key]).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
   const hasActive = Object.values(filters).some(v => v !== "all");
 
   const filterDefs = [
@@ -49,7 +50,7 @@ export default function DashboardFilters({ orders, filters, onChange }) {
           <div key={key}>
             <p className="text-[10px] text-muted-foreground mb-1 font-medium">{label}</p>
             <Select value={filters[key]} onValueChange={v => onChange({ ...filters, [key]: v })}>
-              <SelectTrigger className={`h-7 text-[11px] border-border ${filters[key] !== "all" ? "bg-primary/10 border-primary/30 text-primary" : "bg-secondary"}`}>
+              <SelectTrigger className={`h-7 text-[11px] border-border ${filters[key] === "all" ? "bg-secondary" : "bg-primary/10 border-primary/30 text-primary"}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -63,3 +64,9 @@ export default function DashboardFilters({ orders, filters, onChange }) {
     </div>
   );
 }
+
+DashboardFilters.propTypes = {
+  orders: PropTypes.arrayOf(PropTypes.object).isRequired,
+  filters: PropTypes.object.isRequired,
+  onChange: PropTypes.func.isRequired,
+};

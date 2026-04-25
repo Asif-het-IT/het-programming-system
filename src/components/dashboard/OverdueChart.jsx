@@ -1,5 +1,6 @@
 import React from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
+import PropTypes from "prop-types";
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -12,6 +13,18 @@ function CustomTooltip({ active, payload, label }) {
       </p>
     </div>
   );
+}
+
+CustomTooltip.propTypes = {
+  active: PropTypes.bool,
+  payload: PropTypes.arrayOf(PropTypes.object),
+  label: PropTypes.string,
+};
+
+function getBarColor(days) {
+  if (days < 0) return "#ef4444";
+  if (days < 7) return "#f59e0b";
+  return "#10b981";
 }
 
 export default function OverdueChart({ data = [] }) {
@@ -33,11 +46,15 @@ export default function OverdueChart({ data = [] }) {
         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
         <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
         <Bar dataKey="days" radius={[4, 4, 0, 0]}>
-          {chartData.map((d, i) => (
-            <Cell key={i} fill={d.days < 0 ? "#ef4444" : d.days < 7 ? "#f59e0b" : "#10b981"} />
+          {chartData.map((d) => (
+            <Cell key={`${d.name}-${d.days}`} fill={getBarColor(d.days)} />
           ))}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
 }
+
+OverdueChart.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.object),
+};

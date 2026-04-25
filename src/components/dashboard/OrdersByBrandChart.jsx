@@ -1,5 +1,6 @@
 import React from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import PropTypes from "prop-types";
 
 const COLORS = ["#8b5cf6","#6366f1","#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#ec4899","#f97316","#84cc16"];
 
@@ -12,6 +13,12 @@ function CustomTooltip({ active, payload, label }) {
     </div>
   );
 }
+
+CustomTooltip.propTypes = {
+  active: PropTypes.bool,
+  payload: PropTypes.arrayOf(PropTypes.object),
+  label: PropTypes.string,
+};
 
 export default function OrdersByBrandChart({ data = [] }) {
   if (!data.length) return (
@@ -28,9 +35,17 @@ export default function OrdersByBrandChart({ data = [] }) {
         <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-          {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          {chartData.map((item, i) => <Cell key={item.fullName} fill={COLORS[i % COLORS.length]} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
 }
+
+OrdersByBrandChart.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.arrayOf(
+      PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    )
+  ),
+};

@@ -65,7 +65,7 @@ export function mapRowToOrder(headerRow, row, databaseType = 'GAYLE_LACE') {
 
 function parseNum(v) {
   if (v === null || v === undefined || v === "") return 0;
-  const n = Number(String(v).replace(/,/g, "").replace(/[^0-9.-]/g, "").trim());
+  const n = Number(String(v).replaceAll(",", "").replaceAll(/[^0-9.-]/g, "").trim());
   return Number.isNaN(n) ? 0 : n;
 }
 

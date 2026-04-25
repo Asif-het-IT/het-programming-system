@@ -18,6 +18,8 @@ import OverdueChart from "../components/dashboard/OverdueChart";
 import ShipmentStatusCards from "../components/dashboard/ShipmentStatusCards";
 import OrdersTable from "../components/dashboard/OrdersTable";
 
+const DASHBOARD_LOADING_KEYS = ["card-1", "card-2", "card-3", "card-4"];
+
 export default function Dashboard() {
   const [filters, setFilters] = useState({ brand: "all", marka: "all", range: "all", category: "all", consignee: "all", status: "all" });
   const { user } = useAuth();
@@ -67,7 +69,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto space-y-6">
           <Skeleton className="h-10 w-72" />
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+            {DASHBOARD_LOADING_KEYS.map((key) => <Skeleton key={key} className="h-28 rounded-xl" />)}
           </div>
         </div>
       </div>

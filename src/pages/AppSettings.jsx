@@ -47,15 +47,15 @@ export default function AppSettings() {
           </h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] text-muted-foreground font-medium block mb-1">Full Name</label>
+              <p className="text-[11px] text-muted-foreground font-medium block mb-1">Full Name</p>
               <div className="h-8 px-3 rounded-md border border-border bg-secondary flex items-center text-xs text-foreground">{user?.full_name || "—"}</div>
             </div>
             <div>
-              <label className="text-[11px] text-muted-foreground font-medium block mb-1">Email</label>
+              <p className="text-[11px] text-muted-foreground font-medium block mb-1">Email</p>
               <div className="h-8 px-3 rounded-md border border-border bg-secondary flex items-center text-xs text-muted-foreground font-mono">{user?.email || "—"}</div>
             </div>
             <div>
-              <label className="text-[11px] text-muted-foreground font-medium block mb-1">Role</label>
+              <p className="text-[11px] text-muted-foreground font-medium block mb-1">Role</p>
               <div className="h-8 px-3 rounded-md border border-border bg-secondary flex items-center">
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${user?.role === "admin" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>{user?.role || "—"}</span>
               </div>
@@ -85,8 +85,9 @@ export default function AppSettings() {
               { key: "confirm", label: "Confirm New Password", value: confirmPw, set: setConfirmPw },
             ].map(({ key, label, value, set }) => (
               <div key={key} className="relative">
-                <label className="text-[11px] text-muted-foreground font-medium block mb-1">{label}</label>
+                <label htmlFor={`password-${key}`} className="text-[11px] text-muted-foreground font-medium block mb-1">{label}</label>
                 <Input
+                  id={`password-${key}`}
                   type={showPw ? "text" : "password"}
                   value={value}
                   onChange={e => set(e.target.value)}
@@ -94,7 +95,7 @@ export default function AppSettings() {
                   placeholder="••••••••"
                 />
                 {key === "current" && (
-                  <button onClick={() => setShowPw(s => !s)} className="absolute right-2 top-6 text-muted-foreground hover:text-foreground">
+                  <button type="button" onClick={() => setShowPw(s => !s)} className="absolute right-2 top-6 text-muted-foreground hover:text-foreground">
                     {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
                 )}

@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import PropTypes from "prop-types";
 
 const STATUS_CONFIG = [
   { key: "way_to_dubai", label: "Way to Dubai", color: "bg-blue-500", textColor: "text-blue-400", match: (s) => String(s).toLowerCase().includes("dubai") },
@@ -54,3 +55,7 @@ export default function ShipmentStatusCards({ orders = [] }) {
     </div>
   );
 }
+
+ShipmentStatusCards.propTypes = {
+  orders: PropTypes.arrayOf(PropTypes.object),
+};

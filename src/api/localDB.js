@@ -19,7 +19,7 @@ import {
 const ORDERS_MIGRATION_FLAG = 'progdb_orders_migrated_to_indexeddb_v1';
 
 function uuid() {
-  return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
 }
 
 function withMeta(data) {

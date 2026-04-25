@@ -39,6 +39,8 @@ const DEFAULT_CONFIG = {
   is_active: true,
 };
 
+const LOADING_CONFIG_KEYS = ["sync-config-1", "sync-config-2"];
+
 export default function SyncCenter() {
   const { activeDatabase, updateDatabase } = useDatabaseManager();
   const qc = useQueryClient();
@@ -170,6 +172,78 @@ export default function SyncCenter() {
     return <Clock className="h-3.5 w-3.5 text-muted-foreground" />;
   };
 
+  const statusTextClass = (status) => {
+    if (status === "success") return "text-emerald-400";
+    if (status === "error") return "text-rose-400";
+    return "text-primary";
+  };
+
+  let saveButtonLabel = "Save Config";
+  if (createMut.isPending) {
+    saveButtonLabel = "Saving...";
+  } else if (editingId) {
+    saveButtonLabel = "Update Config";
+  }
+
+  let configListContent;
+  if (configsLoading) {
+    configListContent = LOADING_CONFIG_KEYS.map((key) => (
+      <div key={key} className="h-20 rounded-xl border border-border bg-card animate-pulse" />
+    ));
+  } else if (configs.length === 0) {
+    configListContent = (
+      <div className="rounded-xl border border-dashed border-border p-10 text-center">
+        <Zap className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-40" />
+        <p className="text-sm text-muted-foreground">No sync configurations yet</p>
+        <p className="text-xs text-muted-foreground/70 mt-1">Add your Google Apps Script bridge URL to get started</p>
+      </div>
+    );
+  } else {
+    configListContent = configs.map(config => (
+      <motion.div key={config.id} layout className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className={`h-2 w-2 rounded-full ${config.is_active ? "bg-emerald-400" : "bg-muted"}`} />
+            <div>
+              <p className="text-sm font-semibold text-foreground">{config.name}</p>
+              <p className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate max-w-xs">{maskBridgeUrl(config.bridge_url)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost" size="sm"
+              onClick={() => toggleMut.mutate({ id: config.id, is_active: !config.is_active })}
+              className={`text-[11px] h-7 px-2 ${config.is_active ? "text-emerald-400" : "text-muted-foreground"}`}
+            >
+              {config.is_active ? "Active" : "Inactive"}
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => handleEdit(config)}
+              className="text-xs h-7 border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+            >
+              Edit
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              disabled={syncingId === config.id}
+              onClick={() => runSync(config)}
+              className="text-xs h-7 border-primary/30 text-primary hover:bg-primary/10"
+            >
+              {syncingId === config.id
+                ? <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Syncing...</>
+                : <><RefreshCw className="h-3 w-3 mr-1" />Sync Now</>}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-rose-400"
+              onClick={() => deleteMut.mutate(config.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    ));
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border bg-card/50 px-6 py-4">
@@ -221,8 +295,9 @@ export default function SyncCenter() {
                   { key: "tab_name", label: "Tab Name", placeholder: "Sheet1" },
                 ].map(({ key, label, placeholder }) => (
                   <div key={key}>
-                    <label className="text-[11px] text-muted-foreground font-medium block mb-1">{label}</label>
+                    <label htmlFor={`sync-config-${key}`} className="text-[11px] text-muted-foreground font-medium block mb-1">{label}</label>
                     <Input
+                      id={`sync-config-${key}`}
                       placeholder={placeholder}
                       type={key === "api_token" ? "password" : "text"}
                       value={formConfig[key]}
@@ -236,7 +311,7 @@ export default function SyncCenter() {
                 <Button variant="outline" size="sm" onClick={handleCancel} className="text-xs h-8">Cancel</Button>
                 <Button size="sm" onClick={handleAdd} disabled={createMut.isPending || !formConfig.name || !formConfig.bridge_url}
                   className="text-xs h-8 bg-primary hover:bg-primary/90">
-                  {createMut.isPending ? "Saving..." : editingId ? "Update Config" : "Save Config"}
+                  {saveButtonLabel}
                 </Button>
               </div>
             </motion.div>
@@ -247,59 +322,7 @@ export default function SyncCenter() {
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Database className="h-4 w-4 text-primary" /> Sync Configurations
           </h2>
-          {configsLoading ? (
-            Array(2).fill(0).map((_, i) => <div key={i} className="h-20 rounded-xl border border-border bg-card animate-pulse" />)
-          ) : configs.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center">
-              <Zap className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-sm text-muted-foreground">No sync configurations yet</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">Add your Google Apps Script bridge URL to get started</p>
-            </div>
-          ) : (
-            configs.map(config => (
-              <motion.div key={config.id} layout className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-2 w-2 rounded-full ${config.is_active ? "bg-emerald-400" : "bg-muted"}`} />
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{config.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate max-w-xs">{maskBridgeUrl(config.bridge_url)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => toggleMut.mutate({ id: config.id, is_active: !config.is_active })}
-                      className={`text-[11px] h-7 px-2 ${config.is_active ? "text-emerald-400" : "text-muted-foreground"}`}
-                    >
-                      {config.is_active ? "Active" : "Inactive"}
-                    </Button>
-                    <Button
-                      variant="outline" size="sm"
-                      onClick={() => handleEdit(config)}
-                      className="text-xs h-7 border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline" size="sm"
-                      disabled={syncingId === config.id}
-                      onClick={() => runSync(config)}
-                      className="text-xs h-7 border-primary/30 text-primary hover:bg-primary/10"
-                    >
-                      {syncingId === config.id
-                        ? <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Syncing...</>
-                        : <><RefreshCw className="h-3 w-3 mr-1" />Sync Now</>}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-rose-400"
-                      onClick={() => deleteMut.mutate(config.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            ))
-          )}
+          {configListContent}
         </div>
 
         <div className="space-y-3">
@@ -321,12 +344,12 @@ export default function SyncCenter() {
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((log, i) => (
-                    <tr key={log.id || i} className="border-t border-border hover:bg-secondary/40">
+                  {logs.map((log) => (
+                    <tr key={log.id || `${log.config_name || 'config'}-${log.started_at || ''}-${log.status || 'unknown'}`} className="border-t border-border hover:bg-secondary/40">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-1.5">
                           {statusIcon(log.status)}
-                          <span className={log.status === "success" ? "text-emerald-400" : log.status === "error" ? "text-rose-400" : "text-primary"}>
+                          <span className={statusTextClass(log.status)}>
                             {log.status}
                           </span>
                         </div>

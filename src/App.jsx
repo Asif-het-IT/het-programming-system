@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+import PropTypes from 'prop-types';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/query-client';
@@ -38,6 +39,11 @@ function ProtectedRoute({ children, adminOnly = false }) {
 
   return children;
 }
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+  adminOnly: PropTypes.bool,
+};
 
 function App() {
   return (

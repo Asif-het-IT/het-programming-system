@@ -10,13 +10,15 @@ import { TrendingUp, DollarSign, Package, RefreshCw, AlertTriangle } from "lucid
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
+import PropTypes from "prop-types";
 
 const AED_RATE = 3.6735;
+const LOADING_CARD_KEYS = ["orders", "contract", "invoiced", "overdue"];
 
 function parseNum(v) {
   if (v === null || v === undefined || v === "") return 0;
-  const n = Number(String(v).replace(/,/g, "").replace(/[^0-9.-]/g, ""));
-  return isNaN(n) ? 0 : n;
+  const n = Number(String(v).replaceAll(",", "").replaceAll(/[^0-9.-]/g, ""));
+  return Number.isNaN(n) ? 0 : n;
 }
 
 function fmtDate(v) {
@@ -50,6 +52,14 @@ function StatBox({ icon: Icon, label, value, sub, color = "text-primary" }) {
     </div>
   );
 }
+
+StatBox.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  sub: PropTypes.string,
+  color: PropTypes.string,
+};
 
 export default function ManagementReport() {
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -95,7 +105,10 @@ export default function ManagementReport() {
     [activeOrders, categoryFilter]
   );
 
-  const categories = useMemo(() => [...new Set(scopedOrders.map(o => o.category).filter(Boolean))].sort(), [scopedOrders]);
+  const categories = useMemo(
+    () => [...new Set(scopedOrders.map(o => o.category).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b))),
+    [scopedOrders]
+  );
 
   const totalContractUSD = filtered.reduce((s, o) => s + parseNum(o.amount_usd), 0);
   const totalInvUSD = filtered.reduce((s, o) => s + parseNum(o.inv_amount_usd), 0);
@@ -171,7 +184,7 @@ export default function ManagementReport() {
       <div className="p-6 space-y-6">
         {isLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array(4).fill(0).map((_, i) => <div key={i} className="rounded-xl border border-border bg-card p-5 h-24 animate-pulse" />)}
+            {LOADING_CARD_KEYS.map((key) => <div key={key} className="rounded-xl border border-border bg-card p-5 h-24 animate-pulse" />)}
           </div>
         ) : (
           <>

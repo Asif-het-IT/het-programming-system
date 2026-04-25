@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Search, ArrowUpDown } from "lucide-react";
 import { StatusBadge, formatCell } from "@/pages/DataViews";
-import { format } from "date-fns";
+import PropTypes from "prop-types";
 
 const COLUMNS = [
   { key: "sr", label: "SR" },
@@ -18,6 +18,24 @@ const COLUMNS = [
 ];
 
 const PAGE_SIZE = 10;
+
+function getCellClass(columnKey, row) {
+  if (columnKey === "overdue_days") {
+    return Number(row[columnKey] || 0) < 0
+      ? "text-rose-400 font-mono font-bold"
+      : "text-emerald-400 font-mono";
+  }
+
+  if (columnKey === "sr") {
+    return "font-mono text-muted-foreground";
+  }
+
+  if (columnKey === "quantity") {
+    return "font-mono text-foreground";
+  }
+
+  return "text-muted-foreground";
+}
 
 export default function OrdersTable({ orders = [] }) {
   const [search, setSearch] = useState("");
@@ -43,7 +61,7 @@ export default function OrdersTable({ orders = [] }) {
       const av = a[sortKey] ?? "";
       const bv = b[sortKey] ?? "";
       const an = Number(av), bn = Number(bv);
-      const numComp = !isNaN(an) && !isNaN(bn) ? an - bn : String(av).localeCompare(String(bv));
+      const numComp = !Number.isNaN(an) && !Number.isNaN(bn) ? an - bn : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? numComp : -numComp;
     });
     return result;
@@ -92,16 +110,10 @@ export default function OrdersTable({ orders = [] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              paged.map((o, i) => (
-                <TableRow key={o.id || i} className="border-border hover:bg-secondary/40 transition-colors">
+              paged.map((o) => (
+                <TableRow key={o.id || o.sr || `${o.brand || 'row'}-${o.party_name || ''}-${o.delivery_date || ''}`} className="border-border hover:bg-secondary/40 transition-colors">
                   {COLUMNS.map(c => (
-                    <TableCell key={c.key} className={`text-xs whitespace-nowrap py-2 ${
-                      c.key === "overdue_days" && Number(o[c.key] || 0) < 0 ? "text-rose-400 font-mono font-bold" :
-                      c.key === "overdue_days" ? "text-emerald-400 font-mono" :
-                      c.key === "sr" ? "font-mono text-muted-foreground" :
-                      ["quantity"].includes(c.key) ? "font-mono text-foreground" :
-                      "text-muted-foreground"
-                    }`}>
+                    <TableCell key={c.key} className={`text-xs whitespace-nowrap py-2 ${getCellClass(c.key, o)}`}>
                       {c.key === "shipment_status" ? <StatusBadge value={o[c.key]} /> : formatCell(c.key, o[c.key])}
                     </TableCell>
                   ))}
@@ -129,3 +141,7 @@ export default function OrdersTable({ orders = [] }) {
     </div>
   );
 }
+
+OrdersTable.propTypes = {
+  orders: PropTypes.arrayOf(PropTypes.object),
+};

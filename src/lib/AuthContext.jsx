@@ -1,4 +1,5 @@
 import React, { createContext, useMemo, useContext } from 'react';
+import PropTypes from 'prop-types';
 import { useAuthStore } from '@/store/authStore';
 import {
   createUserRequest,
@@ -88,6 +89,10 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+AuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export const useAuth = () => {
