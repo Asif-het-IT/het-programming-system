@@ -24,6 +24,8 @@ import { writeAuditEvent } from '../data/auditLog.js';
 import { consumeUserWriteQuota, getUserQuotaUsage } from '../data/quotaStore.js';
 import { getQualifiedViewName, getViewConfigFromSource, isViewNameMatch } from '../services/viewConfigService.js';
 import { alignRecordsToView } from '../services/viewProjectionService.js';
+import { getDatabaseByName, listDatabases, listViews, getViewByName } from '../data/databaseRegistry.js';
+import { applyFilterRules, applySearch, applySort, paginateRows, projectColumns } from '../services/dynamicViewEngine.js';
 
 const router = Router();
 
@@ -62,9 +64,39 @@ function getControlledWriteAccess(user, database) {
   };
 }
 
+function parseScopedViewToken(value) {
+  const raw = String(value || '').trim();
+  const sep = raw.indexOf('::');
+  if (sep === -1) return null;
+
+  const database = raw.slice(0, sep).trim().toUpperCase();
+  const view = raw.slice(sep + 2).trim();
+  if (!database || !view) return null;
+
+  return { database, view };
+}
+
+function hasAssignedViewForScope(assignedValues, database, view) {
+  const values = Array.isArray(assignedValues) ? assignedValues : [];
+  const db = String(database || '').trim().toUpperCase();
+  const targetView = String(view || '').trim();
+  if (!targetView) return false;
+
+  return values.some((value) => {
+    const scoped = parseScopedViewToken(value);
+    if (scoped) {
+      if (scoped.database !== db) return false;
+      return scoped.view === targetView || isViewNameMatch(scoped.view, targetView);
+    }
+
+    const raw = String(value || '').trim();
+    return raw === targetView || isViewNameMatch(raw, targetView);
+  });
+}
+
 function ensureUserScope(user, database, view) {
   const hasDb = user.databases?.includes('*') || user.databases?.includes(database);
-  const hasView = user.views?.includes('*') || user.views?.includes(view);
+  const hasView = user.views?.includes('*') || hasAssignedViewForScope(user.views, database, view);
   return Boolean(hasDb && hasView);
 }
 
@@ -94,6 +126,8 @@ function normalizeColumnName(value) {
 
 function resolveColumnAccess(user, database, view) {
   const normalizedView = String(view || '').trim();
+  const normalizedDatabase = String(database || '').trim().toUpperCase();
+  const scopedViewKey = normalizedView ? `${normalizedDatabase}::${normalizedView}` : '';
   const allowedByViewMap = user?.allowedColumnsByView && typeof user.allowedColumnsByView === 'object'
     ? user.allowedColumnsByView
     : {};
@@ -102,9 +136,17 @@ function resolveColumnAccess(user, database, view) {
     ? user.allowedColumns[database]
     : undefined;
 
-  let allowedByView = allowedByViewMap[normalizedView];
+  let allowedByView = allowedByViewMap[scopedViewKey] || allowedByViewMap[normalizedView];
   if (!Array.isArray(allowedByView) && normalizedView) {
-    const matched = Object.entries(allowedByViewMap).find(([key]) => isViewNameMatch(key, normalizedView));
+    const matched = Object.entries(allowedByViewMap).find(([key]) => {
+      const scoped = parseScopedViewToken(key);
+      if (scoped) {
+        if (scoped.database !== normalizedDatabase) return false;
+        return scoped.view === normalizedView || isViewNameMatch(scoped.view, normalizedView);
+      }
+
+      return isViewNameMatch(key, normalizedView);
+    });
     if (matched) {
       allowedByView = matched[1];
     }
@@ -146,6 +188,71 @@ function applyColumnAccess(records, selectedHeaders, access) {
   };
 }
 
+function extractTotal(payload, fallbackCount) {
+  if (typeof payload?.data?.total === 'number') return payload.data.total;
+  if (typeof payload?.total === 'number') return payload.total;
+  if (typeof payload?.data?.count === 'number') return payload.data.count;
+  if (typeof payload?.count === 'number') return payload.count;
+  return fallbackCount;
+}
+
+function isLegacyDatabase(database) {
+  const db = String(database || '').toUpperCase();
+  return db === 'MEN_MATERIAL' || db === 'LACE_GAYLE';
+}
+
+async function fetchAllRowsForCustomDatabase(databaseConfig, requester) {
+  const pageSize = 1000;
+  const maxPages = 50;
+  let page = 1;
+  let total = null;
+  let sourcePayload = null;
+  const rows = [];
+
+  while (page <= maxPages) {
+    const payload = await fetchDataFromGas({
+      database: databaseConfig.name,
+      sheetIdOrUrl: databaseConfig.sheetIdOrUrl,
+      sheetName: databaseConfig.sheetName,
+      dataRange: databaseConfig.dataRange,
+      page,
+      pageSize,
+      requester,
+    });
+
+    if (!sourcePayload) {
+      sourcePayload = payload;
+    }
+
+    const envelope = extractRecordsEnvelope(payload);
+    const batch = Array.isArray(envelope.records) ? envelope.records : [];
+    rows.push(...batch);
+
+    const reportedTotal = extractTotal(payload, batch.length);
+    if (typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)) {
+      total = reportedTotal;
+    }
+
+    const reachedTotal = typeof total === 'number' ? rows.length >= total : false;
+    const reachedLastPage = batch.length < pageSize;
+    if (reachedTotal || reachedLastPage) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return {
+    rows,
+    total: typeof total === 'number' ? total : rows.length,
+    sourcePayload,
+  };
+}
+
+function getDynamicViewDefinition(database, view) {
+  return getViewByName(database, view);
+}
+
 router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req, res, next) => {
   try {
     if (!hasPermission(req.user, 'data:read')) {
@@ -155,6 +262,60 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
     const query = req.validatedQuery;
     if (!ensureUserScope(req.user, query.database, query.view)) {
       return next({ status: 403, message: 'No access to requested view' });
+    }
+
+    const dbConfig = getDatabaseByName(query.database);
+    if (!dbConfig?.active) {
+      return next({ status: 404, message: 'Database not found or inactive' });
+    }
+
+    const isLegacy = isLegacyDatabase(query.database);
+
+    if (!isLegacy) {
+      const dynamicView = getDynamicViewDefinition(query.database, query.view);
+      if (!dynamicView?.active) {
+        return next({ status: 404, message: 'View not found for selected database' });
+      }
+
+      const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
+      const fetched = await fetchAllRowsForCustomDatabase(dbConfig, req.user.email);
+
+      let rows = fetched.rows;
+      rows = applyFilterRules(rows, dynamicView.filterRules || []);
+      rows = applySearch(rows, query.search, dynamicView.selectedColumns);
+
+      const sortColumn = query.sortBy || dynamicView.sort?.column;
+      const sortDirection = query.sortOrder || dynamicView.sort?.direction || 'asc';
+      rows = applySort(rows, sortColumn, sortDirection);
+
+      const projected = projectColumns(rows, dynamicView.selectedColumns);
+      const restricted = applyColumnAccess(projected.rows, projected.headers, columnAccess);
+      const paged = paginateRows(restricted.records, query.page, query.pageSize);
+
+      return res.json({
+        data: {
+          records: paged.records,
+          total: paged.total,
+          page: paged.page,
+          pageSize: paged.pageSize,
+        },
+        viewAlignment: {
+          source: 'dynamic-builder',
+          view: dynamicView.viewName,
+          selectedHeaders: restricted.selectedHeaders,
+          filterRules: dynamicView.filterRules || [],
+          rowCount: paged.records.length,
+        },
+        columnAccess: {
+          configured: columnAccess.configured,
+          allowedColumns: columnAccess.columns,
+          visibleColumns: restricted.selectedHeaders,
+        },
+        source: {
+          fetchedRows: fetched.rows.length,
+          fetchedTotal: fetched.total,
+        },
+      });
     }
 
     // Resolve view config FIRST so we can pass server-side filter params to GAS.
@@ -278,6 +439,10 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
     const payload = { ...req.body, dryRun: query.dryRun === true };
     const database = query.database;
     const view = query.view;
+
+    if (database && !isLegacyDatabase(database)) {
+      return next({ status: 400, message: 'save-entry currently supports legacy mapped databases only' });
+    }
 
     if (query.database && query.view && !ensureUserScope(req.user, query.database, query.view)) {
       return next({ status: 403, message: 'No access to requested write scope' });
@@ -459,7 +624,43 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
       return next({ status: 403, message: 'No access to requested export' });
     }
 
+    const dbConfig = getDatabaseByName(query.database);
+    if (!dbConfig?.active) {
+      return next({ status: 404, message: 'Database not found or inactive' });
+    }
+
+    const isLegacy = isLegacyDatabase(query.database);
     const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
+
+    if (!isLegacy) {
+      const dynamicView = getDynamicViewDefinition(query.database, query.view);
+      if (!dynamicView?.active) {
+        return next({ status: 404, message: 'View not found for selected database' });
+      }
+
+      const fetched = await fetchAllRowsForCustomDatabase(dbConfig, req.user.email);
+      let rows = applyFilterRules(fetched.rows, dynamicView.filterRules || []);
+      rows = applySort(rows, dynamicView.sort?.column, dynamicView.sort?.direction || 'asc');
+      const projected = projectColumns(rows, dynamicView.selectedColumns);
+      const restricted = applyColumnAccess(projected.rows, projected.headers, columnAccess);
+
+      return res.json({
+        format: query.format,
+        database: query.database,
+        view: query.view,
+        data: {
+          records: restricted.records,
+          total: restricted.records.length,
+          page: 1,
+          pageSize: restricted.records.length,
+        },
+        columnAccess: {
+          configured: columnAccess.configured,
+          allowedColumns: columnAccess.columns,
+          visibleColumns: restricted.selectedHeaders,
+        },
+      });
+    }
 
     const exported = await fetchExportFromGas({
       ...query,
@@ -502,7 +703,7 @@ router.get('/my-views', requireAuth, async (req, res, next) => {
 
     let allowedDatabases = [];
     if (req.user.databases?.includes('*')) {
-      allowedDatabases = ['MEN_MATERIAL', 'LACE_GAYLE'];
+      allowedDatabases = listDatabases({ includeInactive: false }).map((db) => db.name);
     } else if (Array.isArray(req.user.databases)) {
       allowedDatabases = req.user.databases;
     }
@@ -511,14 +712,16 @@ router.get('/my-views', requireAuth, async (req, res, next) => {
       return res.json({ views: [] });
     }
 
+    const legacyDatabases = allowedDatabases.filter((database) => isLegacyDatabase(database));
+    const customDatabases = new Set(allowedDatabases.filter((database) => !isLegacyDatabase(database)));
+
     const responses = await Promise.all(
-      allowedDatabases.map((database) => fetchViewConfigFromGas({ database })),
+      legacyDatabases.map((database) => fetchViewConfigFromGas({ database })),
     );
 
     const assignedAllViews = req.user.views?.includes('*');
-    const assignedNames = new Set(Array.isArray(req.user.views) ? req.user.views : []);
-    const views = responses.flatMap((response, index) => {
-      const database = allowedDatabases[index];
+    const legacyViews = responses.flatMap((response, index) => {
+      const database = legacyDatabases[index];
       const data = response?.data || response || {};
       const configs = Array.isArray(data?.configs) ? data.configs : [];
 
@@ -539,11 +742,8 @@ router.get('/my-views', requireAuth, async (req, res, next) => {
             return true;
           }
 
-          if (assignedNames.has(rawViewName) || assignedNames.has(qualifiedViewName)) {
-            return true;
-          }
-
-          return Array.from(assignedNames).some((name) => isViewNameMatch(name, rawViewName));
+          return hasAssignedViewForScope(req.user.views, database, rawViewName)
+            || hasAssignedViewForScope(req.user.views, database, qualifiedViewName);
         })
         .map((config) => {
           const qualifiedViewName = getQualifiedViewName({
@@ -561,6 +761,24 @@ router.get('/my-views', requireAuth, async (req, res, next) => {
           };
         });
     });
+
+    const customViewDefs = listViews({ includeInactive: false })
+      .filter((view) => customDatabases.has(view.database));
+
+    const customViews = customViewDefs
+      .filter((view) => {
+        if (assignedAllViews) return true;
+        return hasAssignedViewForScope(req.user.views, view.database, view.viewName);
+      })
+      .map((view) => ({
+        database: view.database,
+        viewName: view.viewName,
+        sheetName: '',
+        columnsList: view.selectedColumns || [],
+        columnAccess: resolveColumnAccess(req.user, view.database, view.viewName),
+      }));
+
+    const views = [...legacyViews, ...customViews];
 
     return res.json({ views });
   } catch (error) {

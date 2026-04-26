@@ -12,6 +12,10 @@ import {
   verifyViewAlignmentQuerySchema,
   gasViewsQuerySchema,
   adminColumnsQuerySchema,
+  createDatabaseSchema,
+  updateDatabaseSchema,
+  createViewDefinitionSchema,
+  updateViewDefinitionSchema,
 } from './schemas.js';
 import {
   listUsers,
@@ -27,6 +31,27 @@ import { getDailyAuditReport, listDailyAuditReports } from '../data/auditReports
 import { fetchDataFromGas, fetchViewOutputFromGas, fetchViewConfigFromGas } from '../services/gasClient.js';
 import { getQualifiedViewName, getViewConfigFromSource } from '../services/viewConfigService.js';
 import { alignRecordsToView, compareViewOutputs } from '../services/viewProjectionService.js';
+import {
+  getAllSubscriptions,
+  getSubscriptionsByEmail,
+  getSubscriptionsByRole,
+  getSubscriptionsByEmails,
+} from '../data/pushSubscriptions.js';
+import { logNotification, getNotificationLogs } from '../data/notificationLog.js';
+import { sendPushToSubscriptions, isVapidReady } from '../services/pushService.js';
+import {
+  listDatabases,
+  createDatabase,
+  updateDatabaseById,
+  deleteDatabaseById,
+  listViews,
+  createView,
+  updateView,
+  deleteView,
+  getDatabaseById,
+  getDatabaseByName,
+  getViewByName,
+} from '../data/databaseRegistry.js';
 
 const router = Router();
 
@@ -38,7 +63,202 @@ function extractRows(payload) {
   return [];
 }
 
+function isLegacyDatabase(database) {
+  const db = String(database || '').toUpperCase();
+  return db === 'MEN_MATERIAL' || db === 'LACE_GAYLE';
+}
+
+async function fetchCustomDatabaseSample(databaseName, requester, pageSize = 200) {
+  const db = getDatabaseByName(databaseName);
+  if (!db) throw new Error('Database not found');
+  if (!db.active) throw new Error('Database is inactive');
+
+  const payload = await fetchDataFromGas({
+    database: db.name,
+    sheetIdOrUrl: db.sheetIdOrUrl,
+    sheetName: db.sheetName,
+    dataRange: db.dataRange,
+    page: 1,
+    pageSize,
+    requester,
+  });
+
+  return extractRows(payload);
+}
+
 router.use(requireAuth, requirePermission('admin:manage'));
+
+function resolveDatabaseByIdentifier(identifier) {
+  const raw = String(identifier || '').trim();
+  if (!raw) return null;
+  return getDatabaseById(raw) || getDatabaseByName(raw);
+}
+
+router.get('/databases', (_req, res) => {
+  res.json({ databases: listDatabases() });
+});
+
+router.post('/databases', validate(createDatabaseSchema), (req, res, next) => {
+  try {
+    const database = createDatabase(req.body);
+    writeAuditEvent({
+      actor: req.user?.email,
+      action: 'admin.database.create',
+      target: database.name,
+      details: {
+        sheetName: database.sheetName,
+        dataRange: database.dataRange,
+        active: database.active,
+      },
+    });
+    res.status(201).json({ database });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
+
+router.put('/databases/:id', validate(updateDatabaseSchema), (req, res, next) => {
+  try {
+    const target = resolveDatabaseByIdentifier(req.params.id);
+    if (!target) return next({ status: 404, message: 'Database not found' });
+
+    const database = updateDatabaseById(target.id, req.body);
+    writeAuditEvent({
+      actor: req.user?.email,
+      action: 'admin.database.update',
+      target: database.name,
+      details: {
+        sheetName: database.sheetName,
+        dataRange: database.dataRange,
+        active: database.active,
+      },
+    });
+    res.json({ database });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
+
+router.delete('/databases/:id', (req, res, next) => {
+  try {
+    const target = resolveDatabaseByIdentifier(req.params.id);
+    if (!target) return next({ status: 404, message: 'Database not found' });
+
+    const removed = deleteDatabaseById(target.id);
+    writeAuditEvent({
+      actor: req.user?.email,
+      action: 'admin.database.delete',
+      target: removed.name,
+      details: {},
+    });
+    res.json({ database: removed });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
+
+router.post('/databases/:id/detect-columns', async (req, res, next) => {
+  try {
+    const db = resolveDatabaseByIdentifier(req.params.id);
+    if (!db) return next({ status: 404, message: 'Database not found' });
+    const dbName = db.name;
+
+    let columns = [];
+
+    if (isLegacyDatabase(dbName)) {
+      const response = await fetchViewConfigFromGas({ database: dbName });
+      const configs = Array.isArray(response?.data?.configs) ? response.data.configs : [];
+      const firstView = configs[0]?.view;
+
+      if (firstView) {
+        const rows = dbName === 'LACE_GAYLE'
+          ? extractRows(await fetchViewOutputFromGas({ database: dbName, view: firstView, page: 1, pageSize: 1, requester: req.user?.email }))
+          : extractRows(await fetchDataFromGas({ database: dbName, view: firstView, page: 1, pageSize: 1, requester: req.user?.email }));
+        columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+      }
+    } else {
+      const rows = await fetchCustomDatabaseSample(dbName, req.user?.email, 2);
+      columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+    }
+
+    res.json({ database: dbName, count: columns.length, columns });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/view-definitions', (req, res) => {
+  const database = req.query.database ? String(req.query.database).trim().toUpperCase() : undefined;
+  res.json({ views: listViews({ database }) });
+});
+
+router.post('/view-definitions', validate(createViewDefinitionSchema), (req, res, next) => {
+  try {
+    const selectedSet = new Set(req.body.selectedColumns || []);
+    const invalidRule = (req.body.filterRules || []).find((rule) => !selectedSet.has(rule.column));
+    if (invalidRule) {
+      return next({ status: 400, message: `Filter column must be part of selected columns: ${invalidRule.column}` });
+    }
+
+    const view = createView(req.body);
+    writeAuditEvent({
+      actor: req.user?.email,
+      action: 'admin.view_definition.create',
+      target: `${view.database}:${view.viewName}`,
+      details: {
+        columns: view.selectedColumns.length,
+        filters: view.filterRules.length,
+      },
+    });
+    res.status(201).json({ view });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
+
+router.put('/view-definitions/:id', validate(updateViewDefinitionSchema), (req, res, next) => {
+  try {
+    const current = listViews().find((item) => item.id === req.params.id);
+    if (!current) return next({ status: 404, message: 'View not found' });
+
+    const selectedColumns = req.body.selectedColumns || current.selectedColumns || [];
+    const selectedSet = new Set(selectedColumns);
+    const rules = req.body.filterRules || current.filterRules || [];
+    const invalidRule = rules.find((rule) => !selectedSet.has(rule.column));
+    if (invalidRule) {
+      return next({ status: 400, message: `Filter column must be part of selected columns: ${invalidRule.column}` });
+    }
+
+    const view = updateView(req.params.id, req.body);
+    writeAuditEvent({
+      actor: req.user?.email,
+      action: 'admin.view_definition.update',
+      target: `${view.database}:${view.viewName}`,
+      details: {
+        columns: view.selectedColumns.length,
+        filters: view.filterRules.length,
+      },
+    });
+    res.json({ view });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
+
+router.delete('/view-definitions/:id', (req, res, next) => {
+  try {
+    const view = deleteView(req.params.id);
+    writeAuditEvent({
+      actor: req.user?.email,
+      action: 'admin.view_definition.delete',
+      target: `${view.database}:${view.viewName}`,
+      details: {},
+    });
+    res.json({ view });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
 
 router.get('/users', (_req, res) => {
   res.json({ users: listUsers() });
@@ -280,6 +500,18 @@ router.get('/verify-view-alignment', validate(verifyViewAlignmentQuerySchema, 'q
 router.get('/gas-views', validate(gasViewsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const { database } = req.validatedQuery;
+
+    if (!isLegacyDatabase(database)) {
+      const dynamicViews = listViews({ database, includeInactive: false }).map((view) => ({
+        view: view.viewName,
+        sheetName: '',
+        filterColumns: (view.filterRules || []).map((rule) => rule.column),
+        filterValues: (view.filterRules || []).map((rule) => rule.value),
+        columnsList: view.selectedColumns || [],
+      }));
+      return res.json({ database, count: dynamicViews.length, views: dynamicViews });
+    }
+
     const response = await fetchViewConfigFromGas({ database });
     const data = response?.data || response || {};
     const configs = Array.isArray(data?.configs) ? data.configs : [];
@@ -302,8 +534,11 @@ router.get('/gas-views', validate(gasViewsQuerySchema, 'query'), async (req, res
 
 router.get('/views', async (req, res, next) => {
   try {
-    const databases = ['MEN_MATERIAL', 'LACE_GAYLE'];
-    const results = await Promise.all(databases.map(async (database) => {
+    const databases = listDatabases({ includeInactive: false }).map((db) => db.name);
+    const legacy = databases.filter((database) => isLegacyDatabase(database));
+    const custom = new Set(databases.filter((database) => !isLegacyDatabase(database)));
+
+    const results = await Promise.all(legacy.map(async (database) => {
       const response = await fetchViewConfigFromGas({ database });
       const data = response?.data || response || {};
       const configs = Array.isArray(data?.configs) ? data.configs : [];
@@ -324,7 +559,18 @@ router.get('/views', async (req, res, next) => {
         }));
     }));
 
-    const views = results.flat();
+    const customViews = listViews({ includeInactive: false })
+      .filter((view) => custom.has(view.database))
+      .map((view) => ({
+        database: view.database,
+        viewName: view.viewName,
+        sheetName: '',
+        filterColumns: (view.filterRules || []).map((rule) => rule.column),
+        filterValues: (view.filterRules || []).map((rule) => rule.value),
+        columnsList: view.selectedColumns || [],
+      }));
+
+    const views = [...results.flat(), ...customViews];
     return res.json({ count: views.length, views });
   } catch (error) {
     return next(error);
@@ -334,6 +580,21 @@ router.get('/views', async (req, res, next) => {
 router.get('/columns', validate(adminColumnsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const { database, view } = req.validatedQuery;
+
+    if (!isLegacyDatabase(database)) {
+      const dynamicView = getViewByName(database, view);
+      if (!dynamicView) {
+        return next({ status: 404, message: 'View not found for selected database' });
+      }
+
+      return res.json({
+        database,
+        view,
+        count: (dynamicView.selectedColumns || []).length,
+        columns: dynamicView.selectedColumns || [],
+      });
+    }
+
     let payload;
 
     if (database === 'LACE_GAYLE') {
@@ -369,6 +630,91 @@ router.get('/columns', validate(adminColumnsQuerySchema, 'query'), async (req, r
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
     return res.json({ database, view, count: columns.length, columns });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ─── Admin: Notification System ──────────────────────────────────────────────
+
+router.get('/notifications/subscribers', (_req, res) => {
+  const subs = getAllSubscriptions();
+  const safe = subs.map(({ email, role, subscribedAt, lastSeen }) => ({
+    email, role, subscribedAt, lastSeen,
+  }));
+  return res.json({ count: safe.length, subscribers: safe });
+});
+
+router.get('/notifications/logs', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  return res.json({ logs: getNotificationLogs(limit) });
+});
+
+router.get('/notifications/status', (_req, res) => {
+  return res.json({ vapidReady: isVapidReady(), subscribed: getAllSubscriptions().length });
+});
+
+router.post('/notifications/send', async (req, res, next) => {
+  try {
+    const { title, body, link, priority, type, target, targetEmail, targetRole, targetDatabases, targetViews } = req.body;
+
+    if (!title || !body) {
+      return next({ status: 400, message: 'title and body are required' });
+    }
+
+    const payload = JSON.stringify({
+      title: String(title).slice(0, 200),
+      body: String(body).slice(0, 500),
+      link: link || '/dashboard',
+      priority: priority || 'normal',
+      type: type || 'admin_announcement',
+      sentAt: new Date().toISOString(),
+    });
+
+    let subscriptions = [];
+
+    if (target === 'all') {
+      subscriptions = getAllSubscriptions();
+    } else if (target === 'email' && targetEmail) {
+      subscriptions = getSubscriptionsByEmail(targetEmail);
+    } else if (target === 'role' && targetRole) {
+      subscriptions = getSubscriptionsByRole(targetRole);
+    } else if (target === 'database' && Array.isArray(targetDatabases) && targetDatabases.length) {
+      const dbSet = new Set(targetDatabases);
+      const all = listUsers();
+      const emails = all.filter((u) => u.databases?.some((d) => dbSet.has(d))).map((u) => u.email);
+      subscriptions = getSubscriptionsByEmails(emails);
+    } else if (target === 'view' && Array.isArray(targetViews) && targetViews.length) {
+      const viewSet = new Set(targetViews);
+      const all = listUsers();
+      const emails = all.filter((u) => u.views?.some((v) => viewSet.has(v))).map((u) => u.email);
+      subscriptions = getSubscriptionsByEmails(emails);
+    } else {
+      return next({ status: 400, message: 'Invalid target specification' });
+    }
+
+    const { delivered, failed } = await sendPushToSubscriptions(subscriptions, payload);
+
+    logNotification({
+      actor: req.user.email,
+      target: target || 'custom',
+      title,
+      body,
+      priority,
+      type,
+      recipientCount: subscriptions.length,
+      delivered,
+      failed,
+    });
+
+    writeAuditEvent({
+      actor: req.user.email,
+      action: 'admin.notification.send',
+      target: target || 'custom',
+      details: { title, recipientCount: subscriptions.length, delivered, failed },
+    });
+
+    return res.json({ sent: true, recipientCount: subscriptions.length, delivered, failed });
   } catch (error) {
     return next(error);
   }

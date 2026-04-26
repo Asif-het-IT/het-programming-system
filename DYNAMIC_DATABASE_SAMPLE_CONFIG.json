@@ -1,0 +1,42 @@
+{
+  "database": {
+    "name": "SALES_TRACKER",
+    "displayName": "Sales Tracker",
+    "sheetIdOrUrl": "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890/edit",
+    "sheetName": "Orders",
+    "dataRange": "A:BE",
+    "primaryKey": "ORDER_ID",
+    "bridgeUrl": "https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxx/exec",
+    "apiToken": "replace-with-secure-token",
+    "active": true
+  },
+  "viewDefinition": {
+    "viewName": "Dubai Active Orders",
+    "database": "SALES_TRACKER",
+    "selectedColumns": [
+      "ORDER_ID",
+      "CUSTOMER",
+      "CITY",
+      "STATUS",
+      "AMOUNT",
+      "CREATED_AT"
+    ],
+    "filterRules": [
+      {
+        "column": "CITY",
+        "operator": "=",
+        "value": "Dubai"
+      },
+      {
+        "column": "STATUS",
+        "operator": "=",
+        "value": "Active"
+      }
+    ],
+    "sort": {
+      "column": "CREATED_AT",
+      "direction": "desc"
+    },
+    "active": true
+  }
+}

@@ -1,28 +1,261 @@
 import { env } from '../config/env.js';
 import { clearCache, getCache, setCache } from './cache.js';
+import { logSyncEvent } from '../data/syncLog.js';
+import { recordFetchSuccess, recordFetchError, recordCacheHit } from '../data/monitorState.js';
+import { notifySyncFailure } from './syncAlerts.js';
+import { getDatabaseByName } from '../data/databaseRegistry.js';
 
-function resolveGasTarget(params = {}) {
-  const database = String(params.database || '').toUpperCase();
+const RETRYABLE_STATUS_CODES = new Set(
+  Array.isArray(env.gasRetryStatusCodes) && env.gasRetryStatusCodes.length > 0
+    ? env.gasRetryStatusCodes
+    : [429, 500, 502, 503, 504],
+);
+const GAS_RETRY_MAX_ATTEMPTS = Math.max(1, Number(env.gasRetryMaxAttempts || 3));
+const GAS_RETRY_BASE_DELAY_MS = Math.max(50, Number(env.gasRetryBaseDelayMs || 300));
+const GAS_RETRY_MAX_DELAY_MS = Math.max(GAS_RETRY_BASE_DELAY_MS, Number(env.gasRetryMaxDelayMs || 4000));
+const GAS_REQUEST_CONCURRENCY = Math.max(1, Number(env.gasRequestConcurrency || 6));
 
-  if (database === 'MEN_MATERIAL') {
-    return {
-      bridgeUrl: env.gasBridgeUrlMenMaterial,
-      secretKey: env.gasSecretKeyMenMaterial,
+function createSemaphore(maxConcurrency) {
+  let active = 0;
+  const waiters = [];
+
+  const buildRelease = () => {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      active = Math.max(0, active - 1);
+      drain();
     };
-  }
+  };
+
+  const drain = () => {
+    if (active >= maxConcurrency) return;
+    const next = waiters.shift();
+    if (!next) return;
+    active += 1;
+    next();
+  };
 
   return {
-    bridgeUrl: env.gasBridgeUrlLaceGayle || env.gasBridgeUrl,
-    secretKey: env.gasSecretKeyLaceGayle || env.gasSecretKey,
+    acquire() {
+      return new Promise((resolve) => {
+        const onGranted = () => {
+          resolve(buildRelease());
+        };
+
+        if (active < maxConcurrency) {
+          active += 1;
+          onGranted();
+          return;
+        }
+
+        waiters.push(onGranted);
+      });
+    },
   };
 }
 
-function isWorkerProxyEnabled() {
-  return Boolean(env.gasProxyUrl);
+const gasRequestSemaphore = createSemaphore(GAS_REQUEST_CONCURRENCY);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function enforceProxyPolicy() {
-  if (env.nodeEnv === 'production' && !env.gasProxyUrl) {
+function parseRetryAfterMs(response) {
+  const header = response?.headers?.get?.('retry-after');
+  if (!header) return null;
+
+  const asNumber = Number(header);
+  if (Number.isFinite(asNumber) && asNumber >= 0) {
+    return asNumber * 1000;
+  }
+
+  const asDate = Date.parse(header);
+  if (!Number.isFinite(asDate)) return null;
+  return Math.max(0, asDate - Date.now());
+}
+
+function computeBackoffDelayMs(attempt, retryAfterMs = null) {
+  if (typeof retryAfterMs === 'number' && retryAfterMs >= 0) {
+    return Math.min(retryAfterMs, GAS_RETRY_MAX_DELAY_MS);
+  }
+
+  const base = GAS_RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt - 1));
+  const jitter = Math.floor(Math.random() * 150);
+  return Math.min(base + jitter, GAS_RETRY_MAX_DELAY_MS);
+}
+
+function shouldRetryStatus(statusCode) {
+  return RETRYABLE_STATUS_CODES.has(Number(statusCode));
+}
+
+function isLikelyNetworkError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('fetch failed')
+    || message.includes('etimedout')
+    || message.includes('timeout')
+    || message.includes('econnreset')
+    || message.includes('econnrefused')
+    || message.includes('network');
+}
+
+async function fetchWithThrottleAndRetry(makeRequest) {
+  let attempt = 0;
+
+  while (attempt < GAS_RETRY_MAX_ATTEMPTS) {
+    attempt += 1;
+
+    try {
+      let response;
+      const release = await gasRequestSemaphore.acquire();
+      try {
+        response = await makeRequest();
+      } finally {
+        release();
+      }
+
+      if (shouldRetryStatus(response.status) && attempt < GAS_RETRY_MAX_ATTEMPTS) {
+        const delayMs = computeBackoffDelayMs(attempt, parseRetryAfterMs(response));
+        await sleep(delayMs);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      if (!isLikelyNetworkError(error) || attempt >= GAS_RETRY_MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      const delayMs = computeBackoffDelayMs(attempt);
+      await sleep(delayMs);
+    }
+  }
+
+  throw new Error('GAS request retries exhausted');
+}
+
+/** Mask a URL for safe admin display — hide deployment ID but keep domain. */
+function maskUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(String(url));
+    // Keep only origin + first path segment
+    const parts = u.pathname.split('/');
+    const masked = parts.map((p, i) => (i > 3 && p.length > 6 ? `${p.slice(0, 4)}…${p.slice(-4)}` : p)).join('/');
+    return `${u.origin}${masked}`;
+  } catch {
+    return '(masked)';
+  }
+}
+
+function extractDbFromParams(params) {
+  const db = String(params?.database || '').trim().toUpperCase();
+  return db || 'UNKNOWN';
+}
+
+function buildScopedCacheKey(method, api, params = {}) {
+  const database = extractDbFromParams(params);
+  const view = String(params?.view || '').trim();
+  const paramsForCache = { ...params };
+  delete paramsForCache.bridgeUrl;
+  delete paramsForCache.apiToken;
+  delete paramsForCache.requester;
+
+  const sortedEntries = Object.entries(paramsForCache)
+    .filter(([, value]) => value !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  return `${method}:${api}:db:${database}:view:${view || '*'}:params:${JSON.stringify(sortedEntries)}`;
+}
+
+function countRecords(data) {
+  if (!data) return null;
+  if (Array.isArray(data)) return data.length;
+  if (Array.isArray(data?.data?.records)) return data.data.records.length;
+  if (Array.isArray(data?.records)) return data.records.length;
+  if (Array.isArray(data?.data?.items)) return data.data.items.length;
+  if (typeof data?.data?.total === 'number') return data.data.total;
+  if (typeof data?.total === 'number') return data.total;
+  return null;
+}
+
+function inferSheetType(params = {}, data = null) {
+  const candidates = [
+    params.sheetName,
+    params.view,
+    data?.source?.sheet_name,
+    data?.config?.sheetName,
+  ].filter(Boolean).map((value) => String(value).toLowerCase());
+
+  if (candidates.some((value) => value.includes('lace'))) return 'Lace';
+  if (candidates.some((value) => value.includes('gayle'))) return 'Gayle';
+  return null;
+}
+
+function extractLogMeta(params = {}, data = null) {
+  return {
+    view: params.view ? String(params.view) : null,
+    sheetType: inferSheetType(params, data),
+    sourceSheetName: data?.source?.sheet_name || data?.config?.sheetName || params.sheetName || null,
+    sourceUrl: data?.config?.url || null,
+  };
+}
+
+function resolveGasTarget(params = {}) {
+  const database = extractDbFromParams(params);
+  const registryDb = getDatabaseByName(database);
+
+  if (registryDb?.type === 'custom') {
+    return {
+      mode: 'direct',
+      bridgeUrl: registryDb.bridgeUrl,
+      secretKey: registryDb.apiToken,
+      database,
+    };
+  }
+
+  if (database === 'MEN_MATERIAL') {
+    if (env.gasProxyUrl) {
+      return { mode: 'proxy', database };
+    }
+
+    return {
+      mode: 'direct',
+      bridgeUrl: env.gasBridgeUrlMenMaterial,
+      secretKey: env.gasSecretKeyMenMaterial,
+      database,
+    };
+  }
+
+  if (database === 'LACE_GAYLE') {
+    if (env.gasProxyUrl) {
+      return { mode: 'proxy', database };
+    }
+
+    return {
+      mode: 'direct',
+      bridgeUrl: env.gasBridgeUrlLaceGayle || env.gasBridgeUrl,
+      secretKey: env.gasSecretKeyLaceGayle || env.gasSecretKey,
+      database,
+    };
+  }
+
+  // Unknown non-legacy databases can still use direct mode if the caller provided explicit target params.
+  return {
+    mode: 'direct',
+    bridgeUrl: String(params.bridgeUrl || ''),
+    secretKey: String(params.apiToken || ''),
+    database,
+  };
+}
+
+function isWorkerProxyEnabled(target) {
+  return target?.mode === 'proxy' && Boolean(env.gasProxyUrl);
+}
+
+function enforceProxyPolicy(target) {
+  if (target?.mode === 'proxy' && env.nodeEnv === 'production' && !env.gasProxyUrl) {
     throw new Error('Proxy required in production');
   }
 }
@@ -48,10 +281,6 @@ function validateGasConfig(target, params = {}) {
   }
 }
 
-async function callGas(action, payload = {}, useCache = true) {
-  return callGasGet(action, payload, useCache);
-}
-
 function toUrlWithApi(api, params, target) {
   const url = new URL(target.bridgeUrl);
   url.searchParams.set('api', api);
@@ -72,145 +301,222 @@ function toUrlWithApi(api, params, target) {
   return url;
 }
 
-async function parseGasJsonResponse(response, api) {
-  const raw = await response.text();
+function getRequestLayer(target) {
+  return isWorkerProxyEnabled(target) ? 'proxy' : 'gas';
+}
 
-  if (!response.ok) {
-    throw new Error(`GAS bridge failed (${response.status}) for api=${api}`);
-  }
-
+function parseGasPayload(rawText, api) {
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      const isFailed = parsed.success === false || parsed.ok === false;
+    const data = JSON.parse(rawText);
+    if (data && typeof data === 'object') {
+      const isFailed = data.success === false || data.ok === false;
       if (isFailed) {
-        const message = parsed.error || parsed.message || `GAS returned unsuccessful payload for api=${api}`;
+        const message = data.error || data.message || `GAS returned unsuccessful payload for api=${api}`;
         throw new Error(String(message));
       }
     }
-    return parsed;
+    return data;
   } catch {
-    const normalized = raw.trim().toLowerCase();
+    const normalized = rawText.trim().toLowerCase();
     if (normalized.startsWith('<!doctype html') || normalized.startsWith('<html')) {
-      throw new Error(`GAS bridge returned HTML for api=${api}; expected JSON. Verify GAS deployment URL/contract mode.`);
+      throw new Error(`GAS bridge returned HTML for api=${api}; expected JSON.`);
     }
-
     throw new Error(`GAS bridge returned non-JSON payload for api=${api}`);
   }
 }
 
-async function callGasGet(api, params = {}, useCache = true, ttlMs = env.cacheTtlMs) {
-  enforceProxyPolicy();
-  const cacheKey = `GET:${api}:${JSON.stringify(params)}`;
+function buildProxyUrl(api, target, params) {
+  const url = new URL(env.gasProxyUrl);
+  url.searchParams.set('database', String(target.database || params.database || 'LACE_GAYLE'));
+  url.searchParams.set('api', api);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+
+  return url;
+}
+
+async function requestGas({ api, method, target, params = {}, body }) {
+  if (isWorkerProxyEnabled(target)) {
+    const proxyUrl = buildProxyUrl(api, target, params);
+    const response = await fetchWithThrottleAndRetry(() => fetch(proxyUrl.toString(), {
+      method,
+      headers: {
+        'x-proxy-auth': env.gasProxyAuthToken,
+        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(method === 'POST' ? { body: JSON.stringify(body || {}) } : {}),
+    }));
+    return { response, requestUrl: maskUrl(proxyUrl.toString()) };
+  }
+
+  validateGasConfig(target, params);
+  const url = toUrlWithApi(api, params, target);
+  const response = await fetchWithThrottleAndRetry(() => fetch(url.toString(), {
+    method,
+    headers: {
+      ...buildGasHeaders(target.secretKey),
+      ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(method === 'POST' ? { body: JSON.stringify(body || {}) } : {}),
+  }));
+
+  return { response, requestUrl: maskUrl(url.toString()) };
+}
+
+async function reportFailure({
+  database,
+  action,
+  durationMs,
+  error,
+  target,
+  requestUrl,
+  responseSize,
+  shouldSuppressAlerts,
+  logMeta,
+}) {
+  const layer = getRequestLayer(target);
+  const errorText = String(error);
+  recordFetchError(database, { durationMs, error: errorText });
+  logSyncEvent({ database, action, status: 'error', durationMs, error: errorText, layer, requestUrl, responseSize, ...logMeta });
+  if (!shouldSuppressAlerts) {
+    await notifySyncFailure({ database, view: logMeta.view, layer, error: errorText, requestUrl });
+  }
+}
+
+async function callGasGet(api, params = {}, useCache = true, ttlMs = env.cacheTtlMs, options = {}) {
+  const target = resolveGasTarget(params);
+  enforceProxyPolicy(target);
+  const cacheKey = buildScopedCacheKey('GET', api, params);
+  const database = extractDbFromParams(params);
+  const action = `data.fetch.${api}`;
+  const shouldSuppressAlerts = options.suppressAlerts === true;
+  const logMeta = extractLogMeta(params);
 
   if (useCache) {
     const cached = getCache(cacheKey);
     if (cached) {
+      recordCacheHit(database);
+      logSyncEvent({ database, action, status: 'cache_hit', cacheHit: true, layer: 'cache', ...extractLogMeta(params, cached) });
       return cached;
     }
   }
 
-  let response;
+  const t0 = Date.now();
+  let requestUrl = null;
+  let responseSize = null;
+  let failureHandled = false;
 
-  if (isWorkerProxyEnabled()) {
-    const url = new URL(env.gasProxyUrl);
-    url.searchParams.set('database', String(params.database || 'LACE_GAYLE'));
-    url.searchParams.set('api', api);
+  try {
+    const gasResponse = await requestGas({ api, method: 'GET', target, params });
+    const response = gasResponse.response;
+    requestUrl = gasResponse.requestUrl;
 
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        url.searchParams.set(key, String(value));
-      }
-    });
+    const rawText = await response.text();
+    const durationMs = Date.now() - t0;
+    responseSize = Buffer.byteLength(rawText, 'utf8');
+    const layer = getRequestLayer(target);
 
-    response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-proxy-auth': env.gasProxyAuthToken,
-      },
-    });
-  } else {
-    const target = resolveGasTarget(params);
-    validateGasConfig(target, params);
-    const url = toUrlWithApi(api, params, target);
-    response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: buildGasHeaders(target.secretKey),
-    });
+    if (!response.ok) {
+      const err = `GAS bridge failed (${response.status}) for api=${api}`;
+      await reportFailure({ database, action, durationMs, error: err, target, requestUrl, responseSize, shouldSuppressAlerts, logMeta });
+      failureHandled = true;
+      throw new Error(err);
+    }
+
+    const data = parseGasPayload(rawText, api);
+
+    const recordCount = countRecords(data);
+    recordFetchSuccess(database, { durationMs, recordCount });
+    logSyncEvent({ database, action, status: 'success', durationMs, recordCount, layer, requestUrl, responseSize, ...extractLogMeta(params, data) });
+
+    setCache(cacheKey, data, ttlMs);
+    return data;
+  } catch (err) {
+    const durationMs = Date.now() - t0;
+    // Record failures that happen before a response or after parsing an unsuccessful payload.
+    if (!failureHandled) {
+      await reportFailure({ database, action, durationMs, error: err.message, target, requestUrl, responseSize, shouldSuppressAlerts, logMeta });
+      failureHandled = true;
+    }
+    throw err;
   }
-
-  const data = await parseGasJsonResponse(response, api);
-  setCache(cacheKey, data, ttlMs);
-  return data;
 }
 
 async function callGasPost(api, body = {}, query = {}) {
-  enforceProxyPolicy();
-  let response;
+  const target = resolveGasTarget(query);
+  enforceProxyPolicy(target);
+  const database = extractDbFromParams(query);
+  const action = `data.write.${api}`;
+  const t0 = Date.now();
+  let requestUrl = null;
+  let responseSize = null;
+  let failureHandled = false;
 
-  if (isWorkerProxyEnabled()) {
-    const url = new URL(env.gasProxyUrl);
-    url.searchParams.set('database', String(query.database || 'LACE_GAYLE'));
-    url.searchParams.set('api', api);
+  try {
+    const gasResponse = await requestGas({ api, method: 'POST', target, params: query, body });
+    const response = gasResponse.response;
+    requestUrl = gasResponse.requestUrl;
 
-    Object.entries(query).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        url.searchParams.set(key, String(value));
-      }
-    });
+    const rawText = await response.text();
+    const durationMs = Date.now() - t0;
+    responseSize = Buffer.byteLength(rawText, 'utf8');
+    const layer = getRequestLayer(target);
 
-    response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        'x-proxy-auth': env.gasProxyAuthToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-  } else {
-    const target = resolveGasTarget(query);
-    validateGasConfig(target, query);
-    const url = toUrlWithApi(api, query, target);
-    response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        ...buildGasHeaders(target.secretKey),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    if (!response.ok) {
+      const err = `GAS bridge failed (${response.status}) for api=${api}`;
+      recordFetchError(database, { durationMs, error: err });
+      logSyncEvent({ database, action, status: 'error', durationMs, error: err, layer, requestUrl, responseSize });
+      failureHandled = true;
+      throw new Error(err);
+    }
+
+    const data = parseGasPayload(rawText, api);
+
+    logSyncEvent({ database, action, status: 'success', durationMs, layer, requestUrl, responseSize });
+
+    // Writes invalidate read-side caches so users see updated records quickly.
+    clearCache();
+    return data;
+  } catch (err) {
+    const durationMs = Date.now() - t0;
+    if (!failureHandled) {
+      const layer = getRequestLayer(target);
+      recordFetchError(database, { durationMs, error: String(err.message) });
+      logSyncEvent({ database, action, status: 'error', durationMs, error: String(err.message), layer, requestUrl, responseSize });
+      failureHandled = true;
+    }
+    throw err;
   }
-
-  const data = await parseGasJsonResponse(response, api);
-  // Writes invalidate read-side caches so users see updated records quickly.
-  clearCache();
-  return data;
 }
 
-export async function fetchDataFromGas(payload) {
-  return callGasGet('records', payload, true);
+export async function fetchDataFromGas(payload, options) {
+  return callGasGet('records', payload, true, env.cacheTtlMs, options);
 }
 
-export async function fetchDashboardFromGas(payload) {
-  return callGasGet('dashboard', payload, true);
+export async function fetchDashboardFromGas(payload, options) {
+  return callGasGet('dashboard', payload, true, env.cacheTtlMs, options);
 }
 
-export async function fetchFiltersFromGas(payload) {
-  return callGasGet('product-names', payload, true);
+export async function fetchFiltersFromGas(payload, options) {
+  return callGasGet('product-names', payload, true, env.cacheTtlMs, options);
 }
 
-export async function fetchExportFromGas(payload) {
-  return callGasGet('records', payload, false);
+export async function fetchExportFromGas(payload, options) {
+  return callGasGet('records', payload, false, env.cacheTtlMs, options);
 }
 
-export async function fetchViewConfigFromGas(payload) {
-  return callGasGet('view-config', payload, true);
+export async function fetchViewConfigFromGas(payload, options) {
+  return callGasGet('view-config', payload, true, env.cacheTtlMs, options);
 }
 
-export async function fetchViewOutputFromGas(payload) {
+export async function fetchViewOutputFromGas(payload, options) {
   // view-output is expensive for LACE_GAYLE; a short cache window improves response time
   // without changing authorization or projection logic.
-  return callGasGet('view-output', payload, true, Math.min(env.cacheTtlMs, 30000));
+  return callGasGet('view-output', payload, true, Math.min(env.cacheTtlMs, 30000), options);
 }
 
 export async function saveEntryToGas(body, query = {}) {

@@ -72,8 +72,10 @@ Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 | [docs/VIEW_SYSTEM.md](docs/VIEW_SYSTEM.md) | Settings sheet, view filtering, alphabet column selection |
 | [docs/SECURITY.md](docs/SECURITY.md) | JWT, RBAC, proxy security, write safety |
 | [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Local dev, cPanel/VPS, Cloudflare Worker, GAS deployment |
+| [docs/SAAS_PRODUCTIZATION_GUIDE.md](docs/SAAS_PRODUCTIZATION_GUIDE.md) | Final SaaS deployment mode, cache strategy, hardening checklist, and benchmark snapshot |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and step-by-step fixes |
 | [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md) | View alignment test matrix and acceptance criteria |
+| [PROJECT_FULL_TECHNICAL_REPORT.md](PROJECT_FULL_TECHNICAL_REPORT.md) | A-to-Z enterprise handover report for frontend, backend, GAS, security, monitoring, notifications, and operations |
 
 ---
 

@@ -7,7 +7,10 @@
     "dev": "vite",
     "dev:api": "node server/index.js",
     "build": "vite build",
+    "build:prod": "vite build --mode production",
     "preview": "vite preview",
+    "preview:prod": "vite preview --host 0.0.0.0 --port 4173",
+    "start:prod": "node server/index.js",
     "gas:login": "clasp login --no-localhost",
     "gas:clone": "clasp clone",
     "gas:clone:lace": "clasp clone 1yzo7jChly3Er-LDECdyvvMdYC6-nQLuQMMXp2xXwRaG2H2xiLYkisL0L",
@@ -68,6 +71,7 @@
     "recharts": "^2.15.4",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
+    "web-push": "^3.6.7",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"
   },

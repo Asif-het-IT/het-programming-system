@@ -23,4 +23,15 @@ export const env = {
   gasProxyAuthToken: process.env.GAS_PROXY_AUTH_TOKEN || '',
   gasAllowedReferrer: process.env.GAS_ALLOWED_REFERRER || '',
   cacheTtlMs: Number(process.env.API_CACHE_TTL_MS || 60_000),
+  gasRetryMaxAttempts: Number(process.env.GAS_RETRY_MAX_ATTEMPTS || 3),
+  gasRetryBaseDelayMs: Number(process.env.GAS_RETRY_BASE_DELAY_MS || 300),
+  gasRetryMaxDelayMs: Number(process.env.GAS_RETRY_MAX_DELAY_MS || 4_000),
+  gasRequestConcurrency: Number(process.env.GAS_REQUEST_CONCURRENCY || 6),
+  gasRetryStatusCodes: (process.env.GAS_RETRY_STATUS_CODES || '429,500,502,503,504')
+    .split(',')
+    .map((value) => Number(String(value).trim()))
+    .filter((value) => Number.isInteger(value) && value > 0),
+  webPushPublicKey: process.env.WEB_PUSH_PUBLIC_KEY || '',
+  webPushPrivateKey: process.env.WEB_PUSH_PRIVATE_KEY || '',
+  webPushSubject: process.env.WEB_PUSH_SUBJECT || 'mailto:admin@example.com',
 };

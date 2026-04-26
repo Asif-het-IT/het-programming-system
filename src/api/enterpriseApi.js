@@ -70,7 +70,115 @@ export async function getAdminColumnsRequest(params) {
   return data;
 }
 
+export async function getAdminDatabasesRequest() {
+  const { data } = await httpClient.get('/admin/databases');
+  return data;
+}
+
+export async function createAdminDatabaseRequest(payload) {
+  const { data } = await httpClient.post('/admin/databases', payload);
+  return data;
+}
+
+export async function updateAdminDatabaseRequest(id, payload) {
+  const { data } = await httpClient.put(`/admin/databases/${encodeURIComponent(id)}`, payload);
+  return data;
+}
+
+export async function deleteAdminDatabaseRequest(id) {
+  const { data } = await httpClient.delete(`/admin/databases/${encodeURIComponent(id)}`);
+  return data;
+}
+
+export async function detectAdminDatabaseColumnsRequest(id) {
+  const { data } = await httpClient.post(`/admin/databases/${encodeURIComponent(id)}/detect-columns`);
+  return data;
+}
+
+export async function getViewDefinitionsRequest(database) {
+  const { data } = await httpClient.get('/admin/view-definitions', {
+    params: database ? { database } : {},
+  });
+  return data;
+}
+
+export async function createViewDefinitionRequest(payload) {
+  const { data } = await httpClient.post('/admin/view-definitions', payload);
+  return data;
+}
+
+export async function updateViewDefinitionRequest(id, payload) {
+  const { data } = await httpClient.put(`/admin/view-definitions/${encodeURIComponent(id)}`, payload);
+  return data;
+}
+
+export async function deleteViewDefinitionRequest(id) {
+  const { data } = await httpClient.delete(`/admin/view-definitions/${encodeURIComponent(id)}`);
+  return data;
+}
+
 export async function getMyViewsRequest() {
   const { data } = await httpClient.get('/my-views');
+  return data;
+}
+
+// ─── Notification APIs ────────────────────────────────────────────────────────
+
+export async function getNotificationSubscribersRequest() {
+  const { data } = await httpClient.get('/admin/notifications/subscribers');
+  return data;
+}
+
+export async function getNotificationLogsRequest(limit = 50) {
+  const { data } = await httpClient.get('/admin/notifications/logs', { params: { limit } });
+  return data;
+}
+
+export async function getNotificationStatusRequest() {
+  const { data } = await httpClient.get('/admin/notifications/status');
+  return data;
+}
+
+export async function sendNotificationRequest(payload) {
+  const { data } = await httpClient.post('/admin/notifications/send', payload);
+  return data;
+}
+
+// ─── Monitoring APIs ──────────────────────────────────────────────────────────
+
+export async function getMonitoringStatusRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/status');
+  return data;
+}
+
+export async function getMonitoringLogsRequest({ limit = 100, database = null, status = null } = {}) {
+  const { data } = await httpClient.get('/admin/monitoring/logs', {
+    params: { limit, ...(database ? { database } : {}), ...(status ? { status } : {}) },
+  });
+  return data;
+}
+
+export async function getMonitoringPerformanceRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/performance');
+  return data;
+}
+
+export async function getMonitoringLaceGayleViewsRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/lace-gayle/views');
+  return data;
+}
+
+export async function refreshMonitoringRequest(database = null) {
+  const { data } = await httpClient.post('/admin/monitoring/refresh', database ? { database } : {});
+  return data;
+}
+
+export async function forceReloadMonitoringRequest() {
+  const { data } = await httpClient.post('/admin/monitoring/force-reload');
+  return data;
+}
+
+export async function clearMonitoringLogsRequest() {
+  const { data } = await httpClient.delete('/admin/monitoring/logs');
   return data;
 }

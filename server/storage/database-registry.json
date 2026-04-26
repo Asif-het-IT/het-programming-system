@@ -1,0 +1,37 @@
+{
+  "databases": [
+    {
+      "id": "legacy_men_material",
+      "name": "MEN_MATERIAL",
+      "displayName": "MEN_MATERIAL",
+      "type": "legacy",
+      "sheetIdOrUrl": "",
+      "sheetName": "Database",
+      "dataRange": "A:AZ",
+      "primaryKey": "ENTRY_ID",
+      "active": true,
+      "bridgeUrl": "",
+      "apiToken": "",
+      "hiddenColumns": [],
+      "createdAt": "2026-04-26T21:34:25.462Z",
+      "updatedAt": "2026-04-26T22:16:32.881Z"
+    },
+    {
+      "id": "legacy_lace_gayle",
+      "name": "LACE_GAYLE",
+      "displayName": "LACE_GAYLE",
+      "type": "legacy",
+      "sheetIdOrUrl": "",
+      "sheetName": "Database",
+      "dataRange": "A:AZ",
+      "primaryKey": "ENTRY_ID",
+      "active": true,
+      "bridgeUrl": "",
+      "apiToken": "",
+      "hiddenColumns": [],
+      "createdAt": "2026-04-26T21:34:25.463Z",
+      "updatedAt": "2026-04-26T22:16:32.882Z"
+    }
+  ],
+  "views": []
+}

@@ -23,8 +23,6 @@ const DEFAULT_QUOTA = {
   liveWriteLimit: 10000,
 };
 
-const SUPPORTED_DATABASES = ['MEN_MATERIAL', 'LACE_GAYLE'];
-
 function normalizeDatabases(databases) {
   if (!Array.isArray(databases)) return [];
   return databases.map((item) => String(item).trim()).filter(Boolean);
@@ -58,10 +56,10 @@ function normalizeAllowedColumns(input) {
   }
 
   const out = {};
-  for (const database of SUPPORTED_DATABASES) {
-    if (Object.hasOwn(input, database)) {
-      out[database] = normalizeColumns(input[database]);
-    }
+  for (const [database, columns] of Object.entries(input)) {
+    const safeDatabase = String(database || '').trim();
+    if (!safeDatabase) continue;
+    out[safeDatabase] = normalizeColumns(columns);
   }
 
   return out;

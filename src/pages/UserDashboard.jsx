@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getDataRequest, getExportRequest, getMyViewsRequest } from '@/api/enterpriseApi';
 import ThemeToggle from '@/components/ThemeToggle';
 import PwaInstallButton from '@/components/PwaInstallButton';
+import NotificationSetup from '@/components/NotificationSetup';
 
 const FIELD_LABELS = {
   A: 'Col A', B: 'Col B', C: 'Col C', D: 'Col D', E: 'Col E', F: 'Col F', G: 'Col G', H: 'Col H',
@@ -60,6 +61,7 @@ export default function UserDashboard() {
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [page, setPage] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
   const parentRef = useRef(null);
 
   const { data: viewPayload, isLoading: isLoadingViews } = useQuery({
@@ -108,7 +110,7 @@ export default function UserDashboard() {
 
   const currentView = filteredViews.find((v) => v.viewName === selectedViewName) || filteredViews[0] || safeViews[0];
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['enterprise-data', currentView?.database, currentView?.viewName, page, search, marka, product, dsn, fromDate, toDate, sortBy, sortOrder],
     queryFn: () => getDataRequest({
       database: currentView?.database,
@@ -195,14 +197,27 @@ export default function UserDashboard() {
     );
   } else if (error) {
     mainContent = (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
         <div className="flex gap-3">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
           <div>
-            <p className="text-sm font-medium text-red-900">Error loading data</p>
-            <p className="text-xs text-red-800 mt-1">{error?.response?.data?.error || error?.message}</p>
+            <p className="text-sm font-medium text-red-900">Data load failed</p>
+            <p className="text-xs text-red-800 mt-1">We could not load the selected view right now. Please retry.</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Retry
+          </Button>
+          {user?.role === 'admin' ? (
+            <Button size="sm" variant="outline" onClick={() => setShowDebug((prev) => !prev)}>
+              {showDebug ? 'Hide Debug' : 'Show Debug'}
+            </Button>
+          ) : null}
+        </div>
+        {showDebug && user?.role === 'admin' ? (
+          <pre className="text-[11px] leading-4 whitespace-pre-wrap rounded border border-red-200 bg-white p-2 max-h-52 overflow-auto">{error?.response?.data ? JSON.stringify(error.response.data, null, 2) : String(error?.stack || error?.message || 'unknown_error')}</pre>
+        ) : null}
       </div>
     );
   } else {
@@ -224,7 +239,18 @@ export default function UserDashboard() {
             </div>
 
             <div ref={parentRef} className="h-[540px] overflow-auto">
-              <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rows.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center space-y-2">
+                    <p className="text-sm font-medium">No records found</p>
+                    <p className="text-xs text-muted-foreground">Try changing filters, search text, or date range.</p>
+                    <Button size="sm" variant="outline" onClick={() => refetch()}>
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
                 {virtualizer.getVirtualItems().map((virtualRow) => {
                   const row = rows[virtualRow.index] || {};
                   return (
@@ -248,7 +274,8 @@ export default function UserDashboard() {
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -292,6 +319,7 @@ export default function UserDashboard() {
             <p className="text-xs text-muted-foreground mt-0.5">Welcome, {user.email}</p>
           </div>
           <div className="flex gap-2">
+            <NotificationSetup compact />
             <PwaInstallButton />
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={() => { logout(); navigate('/'); }}>
@@ -368,6 +396,9 @@ export default function UserDashboard() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => runExport('png')} disabled={isLoading}>
               PNG
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? 'Refreshing...' : 'Retry'}
             </Button>
           </div>
         </div>

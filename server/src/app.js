@@ -10,6 +10,8 @@ import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import dataRoutes from './routes/data.js';
 import adminRoutes from './routes/admin.js';
+import notificationRoutes from './routes/notifications.js';
+import monitoringRoutes from './routes/monitoring.js';
 
 const app = express();
 
@@ -23,7 +25,9 @@ app.use(globalLimiter);
 app.use('/api', healthRoutes);
 app.use('/api', authRoutes);
 app.use('/api', dataRoutes);
+app.use('/api', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/monitoring', monitoringRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

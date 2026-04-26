@@ -1,18 +1,7 @@
 import { create } from 'zustand';
 import { loginRequest } from '@/api/enterpriseApi';
-import { getViewByName, getAllViews } from '@/lib/userConfig';
 
 const AUTH_STORAGE_KEY = 'auth_user';
-
-function mapUserViews(viewNames = [], role = 'user') {
-  if (role === 'admin' || viewNames.includes('*')) {
-    return getAllViews();
-  }
-
-  return viewNames
-    .map((name) => getViewByName(name))
-    .filter(Boolean);
-}
 
 function loadStoredUser() {
   try {
@@ -39,7 +28,7 @@ export const useAuthStore = create((set, get) => ({
 
       const user = {
         ...response.user,
-        views: mapUserViews(response.user.views, response.user.role),
+        views: Array.isArray(response.user?.views) ? response.user.views : [],
       };
 
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));

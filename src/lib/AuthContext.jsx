@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
         password: legacy.password,
         role: legacy.role || 'user',
         views: legacy.views || [],
-        databases: legacy.databases || ['MEN_MATERIAL'],
+        databases: legacy.databases || [],
         permissions: legacy.permissions,
         quota: legacy.quota,
         allowedColumns: legacy.allowedColumns,
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     const {
       viewNames = [],
       role = 'user',
-      databases = ['MEN_MATERIAL'],
+      databases = [],
       permissions,
       quota,
       allowedColumns,

@@ -11,8 +11,8 @@ export default function PwaInstallButton() {
       setPromptEvent(event);
     };
 
-    window.addEventListener('beforeinstallprompt', listener);
-    return () => window.removeEventListener('beforeinstallprompt', listener);
+    globalThis.addEventListener('beforeinstallprompt', listener);
+    return () => globalThis.removeEventListener('beforeinstallprompt', listener);
   }, []);
 
   if (!promptEvent) {
