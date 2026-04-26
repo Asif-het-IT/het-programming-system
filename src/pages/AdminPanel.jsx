@@ -1262,8 +1262,8 @@ export default function AdminPanel() {
               <div className="max-h-44 overflow-auto rounded border border-border p-3 grid md:grid-cols-2 gap-2">
                 {availableViews.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No views available for selected database(s).</p>
-                ) : availableViews.map((view) => (
-                  <label key={`${view.database}:${view.viewName}`} className="flex items-center gap-2 text-xs">
+                ) : availableViews.map((view, idx) => (
+                  <label key={`${view.database}:${view.viewName}:${idx}`} className="flex items-center gap-2 text-xs">
                     <Checkbox checked={(form.views || []).includes(view.viewName)} onCheckedChange={(checked) => toggleView(view.viewName, checked === true)} />
                     <span>{view.viewName} ({view.database})</span>
                   </label>
@@ -1313,8 +1313,8 @@ export default function AdminPanel() {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Use database-level only</SelectItem>
-                        {columnDatabaseViews.map((view) => (
-                          <SelectItem key={`${view.database}:${view.viewName}`} value={view.viewName}>{view.viewName}</SelectItem>
+                        {columnDatabaseViews.map((view, idx) => (
+                          <SelectItem key={`${view.database}:${view.viewName}:${idx}`} value={view.viewName}>{view.viewName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1545,8 +1545,8 @@ export default function AdminPanel() {
             <Eye className="h-4 w-4" /> Available Views ({allViews.length})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {allViews.map((view) => (
-              <div key={`${view.database}:${view.viewName}`} className="p-3 rounded-lg bg-muted/40 border border-border text-xs">
+            {allViews.map((view, idx) => (
+              <div key={`${view.database}:${view.viewName}:${idx}`} className="p-3 rounded-lg bg-muted/40 border border-border text-xs">
                 <p className="font-medium">{view.viewName}</p>
                 <p className="text-muted-foreground text-xs mt-1">
                   {view.database} • {(view.columnsList || []).length} columns
