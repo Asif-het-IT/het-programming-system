@@ -7,8 +7,9 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import HetLogo from '@/components/HetLogo';
+import Login from './pages/Login';  // eager — entry point, must not lazy-load
 
-const Login = lazy(() => import('./pages/Login'));
+const ROUTER_FUTURE = { v7_startTransition: true, v7_relativeSplatPath: true };
 const UserDashboard = lazy(() => import('./pages/UserDashboard'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 
@@ -46,7 +47,7 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <Router>
+        <Router future={ROUTER_FUTURE}>
           <AuthProvider>
             <AppContent />
             <Toaster />

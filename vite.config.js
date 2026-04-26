@@ -16,14 +16,24 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    sourcemap: false,
+    reportCompressedSize: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
+          'react-query': ['@tanstack/react-query'],
           charts: ['recharts'],
           motion: ['framer-motion'],
-        }
-      }
-    }
-  }
+          radix: [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tooltip',
+          ],
+        },
+      },
+    },
+  },
 })
