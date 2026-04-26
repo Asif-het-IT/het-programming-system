@@ -25,6 +25,18 @@ const FIELD_LABELS = {
 
 const PAGE_SIZE = 100;
 
+function uniqueValues(values = []) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizeColumn(value) {
+  return String(value || '').trim();
+}
+
+function getViewKey(view) {
+  return `${view?.database || 'UNKNOWN'}::${view?.viewName || ''}`;
+}
+
 function normalizeRows(payload) {
   if (!payload) {
     return [];
@@ -52,7 +64,7 @@ export default function UserDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [selectedDatabase, setSelectedDatabase] = useState('all');
-  const [selectedViewName, setSelectedViewName] = useState('');
+  const [selectedViewKey, setSelectedViewKey] = useState('');
   const [search, setSearch] = useState('');
   const [marka, setMarka] = useState('');
   const [product, setProduct] = useState('');
@@ -90,26 +102,35 @@ export default function UserDashboard() {
   }, [safeViews]);
 
   const filteredViews = useMemo(() => {
-    if (selectedDatabase === 'all') {
-      return safeViews;
-    }
-    return safeViews.filter((view) => view.database === selectedDatabase);
+    const source = selectedDatabase === 'all'
+      ? safeViews
+      : safeViews.filter((view) => view.database === selectedDatabase);
+
+    const seen = new Set();
+    return source.filter((view) => {
+      const key = getViewKey(view);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }, [safeViews, selectedDatabase]);
 
   useEffect(() => {
     if (!filteredViews.length) {
-      setSelectedViewName('');
+      setSelectedViewKey('');
       return;
     }
 
-    const exists = filteredViews.some((view) => view.viewName === selectedViewName);
+    const exists = filteredViews.some((view) => getViewKey(view) === selectedViewKey);
     if (!exists) {
-      setSelectedViewName(filteredViews[0].viewName);
+      setSelectedViewKey(getViewKey(filteredViews[0]));
       setPage(0);
     }
-  }, [filteredViews, selectedViewName]);
+  }, [filteredViews, selectedViewKey]);
 
-  const currentView = filteredViews.find((v) => v.viewName === selectedViewName) || filteredViews[0] || safeViews[0];
+  const currentView = filteredViews.find((v) => getViewKey(v) === selectedViewKey) || filteredViews[0] || safeViews[0];
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['enterprise-data', currentView?.database, currentView?.viewName, page, search, marka, product, dsn, fromDate, toDate, sortBy, sortOrder],
@@ -144,10 +165,30 @@ export default function UserDashboard() {
 
   const visibleColumns = useMemo(() => {
     if (rows.length > 0) {
-      return Object.keys(rows[0]);
+      return uniqueValues(Object.keys(rows[0]));
     }
-    return currentView?.columnsList || [];
+    return uniqueValues(currentView?.columnsList || []);
   }, [rows, currentView]);
+
+  const sortableColumns = useMemo(() => {
+    const seen = new Set();
+    const unique = [];
+
+    for (const col of visibleColumns) {
+      const normalized = normalizeColumn(col);
+      if (!normalized) {
+        continue;
+      }
+      const key = normalized.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      unique.push(normalized);
+    }
+
+    return unique;
+  }, [visibleColumns]);
   const totalRecords = dataEnvelope?.total ?? dataEnvelope?.count ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
 
@@ -353,13 +394,13 @@ export default function UserDashboard() {
 
           <div className="flex-1">
             <p className="block text-sm font-medium mb-1.5">Select View</p>
-            <Select value={selectedViewName} onValueChange={(v) => { setSelectedViewName(v); setPage(0); }}>
+            <Select value={selectedViewKey} onValueChange={(v) => { setSelectedViewKey(v); setPage(0); }}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {filteredViews.map((view) => (
-                  <SelectItem key={view.viewName} value={view.viewName}>
+                  <SelectItem key={getViewKey(view)} value={getViewKey(view)}>
                     <Eye className="h-3.5 w-3.5 inline mr-2" />
                     {view.viewName} ({view.database})
                   </SelectItem>
@@ -378,7 +419,7 @@ export default function UserDashboard() {
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Sort Column</SelectItem>
-              {visibleColumns.map((col) => (
+              {sortableColumns.map((col) => (
                 <SelectItem key={`sort-${col}`} value={col}>{FIELD_LABELS[col] || col}</SelectItem>
               ))}
             </SelectContent>
