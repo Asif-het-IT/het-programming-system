@@ -53,9 +53,40 @@ function normalizeViewName(value) {
   return String(value || '')
     .replace(/\s*-\s*(lace|gayle)\s*$/i, '')
     .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replaceAll('&', 'and')
+    .replaceAll(/[^a-z0-9]+/g, ' ')
     .trim();
+}
+
+function normalizeSheetQualifier(sheetName) {
+  const sheet = String(sheetName || '').trim().toLowerCase();
+  if (sheet.includes('lace')) return 'Lace';
+  if (sheet.includes('gayle')) return 'Gayle';
+  return '';
+}
+
+export function getQualifiedViewName({ database, viewName, sheetName }) {
+  const rawView = String(viewName || '').trim();
+  if (!rawView) return '';
+
+  if (String(database || '').toUpperCase() !== 'LACE_GAYLE') {
+    return rawView;
+  }
+
+  const qualifier = normalizeSheetQualifier(sheetName);
+  if (!qualifier) {
+    return rawView;
+  }
+
+  if (/\s-\s(lace|gayle)$/i.test(rawView)) {
+    return rawView.replace(/\s-\s(lace|gayle)$/i, ` - ${qualifier}`);
+  }
+
+  return `${rawView} - ${qualifier}`;
+}
+
+export function isViewNameMatch(left, right) {
+  return normalizeViewName(left) === normalizeViewName(right);
 }
 
 function resolveRequestedQualifier(value) {

@@ -31,6 +31,10 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res, next)
       role: user.role,
       databases: user.databases,
       views: user.views,
+      permissions: user.permissions,
+      quota: user.quota,
+      allowedColumns: user.allowedColumns,
+      allowedColumnsByView: user.allowedColumnsByView,
     };
 
     const accessToken = signAccessToken(tokenPayload);
@@ -57,10 +61,14 @@ router.post('/refresh', authLimiter, validate(refreshSchema), async (req, res, n
       role: payload.role,
       databases: payload.databases,
       views: payload.views,
+      permissions: payload.permissions,
+      quota: payload.quota,
+      allowedColumns: payload.allowedColumns,
+      allowedColumnsByView: payload.allowedColumnsByView,
     });
 
     res.json({ accessToken });
-  } catch (error) {
+  } catch {
     next({ status: 401, message: 'Refresh token expired or invalid' });
   }
 });

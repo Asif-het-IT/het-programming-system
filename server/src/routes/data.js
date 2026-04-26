@@ -15,50 +15,50 @@ import {
   fetchFiltersFromGas,
   fetchExportFromGas,
   fetchViewOutputFromGas,
+  fetchViewConfigFromGas,
   saveEntryToGas,
 } from '../services/gasClient.js';
 import { mapSaveEntryPayload } from '../services/saveEntryMapping.js';
 import { resolveViewAlignment } from '../services/viewAlignmentResolver.js';
 import { writeAuditEvent } from '../data/auditLog.js';
 import { consumeUserWriteQuota, getUserQuotaUsage } from '../data/quotaStore.js';
-import { getViewConfigFromSource } from '../services/viewConfigService.js';
+import { getQualifiedViewName, getViewConfigFromSource, isViewNameMatch } from '../services/viewConfigService.js';
 import { alignRecordsToView } from '../services/viewProjectionService.js';
 
 const router = Router();
 
-const CONTROLLED_WRITE = {
-  ALLOW_WRITE: true,
-  ALLOWED_USERS: ['admin@het.local'],
-  ALLOWED_DATABASES: ['MEN_MATERIAL'],
-  MAX_TEST_WRITES: 5,
-};
+function getControlledWriteAccess(user, database) {
+  const quota = getUserQuotaUsage({ email: user.email });
 
-function getControlledWriteAccess(email, role, database) {
-  const quota = getUserQuotaUsage({ email });
-  const isWriteEnabled = CONTROLLED_WRITE.ALLOW_WRITE === true;
-  const canWriteByRole = hasPermission({ role }, 'data:write');
-  const isUserAllowed = CONTROLLED_WRITE.ALLOWED_USERS.includes(email);
-  const isDatabaseAllowed = CONTROLLED_WRITE.ALLOWED_DATABASES.includes(database);
-  const hasWriteQuota = quota.writes < CONTROLLED_WRITE.MAX_TEST_WRITES;
+  if (!hasPermission(user, 'data:write')) {
+    return {
+      allowed: false,
+      reason: 'write_permission_denied',
+      usage: quota,
+    };
+  }
 
-  let reason = null;
-  if (!isWriteEnabled) {
-    reason = 'write_switch_disabled';
-  } else if (!canWriteByRole) {
-    reason = 'role_write_not_allowed';
-  } else if (!isUserAllowed) {
-    reason = 'user_not_allowed';
-  } else if (!isDatabaseAllowed) {
-    reason = 'database_not_allowed';
-  } else if (!hasWriteQuota) {
-    reason = 'max_test_writes_reached';
+  if (user.permissions?.viewOnly === true) {
+    return {
+      allowed: false,
+      reason: 'view_only_mode',
+      usage: quota,
+    };
+  }
+
+  const hasDb = user.databases?.includes('*') || user.databases?.includes(database);
+  if (!hasDb) {
+    return {
+      allowed: false,
+      reason: 'database_not_assigned',
+      usage: quota,
+    };
   }
 
   return {
-    allowed: reason === null,
-    reason,
-    controlledWriteCount: quota.writes,
-    maxTestWrites: CONTROLLED_WRITE.MAX_TEST_WRITES,
+    allowed: true,
+    reason: null,
+    usage: quota,
   };
 }
 
@@ -86,6 +86,64 @@ function extractRecordsEnvelope(payload) {
   }
 
   return { records: [], set: (_rows) => {} };
+}
+
+function normalizeColumnName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function resolveColumnAccess(user, database, view) {
+  const normalizedView = String(view || '').trim();
+  const allowedByViewMap = user?.allowedColumnsByView && typeof user.allowedColumnsByView === 'object'
+    ? user.allowedColumnsByView
+    : {};
+
+  const allowedByDatabase = user?.allowedColumns && typeof user.allowedColumns === 'object'
+    ? user.allowedColumns[database]
+    : undefined;
+
+  let allowedByView = allowedByViewMap[normalizedView];
+  if (!Array.isArray(allowedByView) && normalizedView) {
+    const matched = Object.entries(allowedByViewMap).find(([key]) => isViewNameMatch(key, normalizedView));
+    if (matched) {
+      allowedByView = matched[1];
+    }
+  }
+
+  if (Array.isArray(allowedByView)) {
+    return { configured: true, columns: allowedByView };
+  }
+
+  if (Array.isArray(allowedByDatabase)) {
+    return { configured: true, columns: allowedByDatabase };
+  }
+
+  return { configured: false, columns: [] };
+}
+
+function applyColumnAccess(records, selectedHeaders, access) {
+  if (!access.configured) {
+    return {
+      selectedHeaders,
+      records,
+    };
+  }
+
+  const allowed = new Set((access.columns || []).map((col) => normalizeColumnName(col)).filter(Boolean));
+  const filteredHeaders = (selectedHeaders || []).filter((header) => allowed.has(normalizeColumnName(header)));
+
+  const projected = (records || []).map((row) => {
+    const out = {};
+    for (const header of filteredHeaders) {
+      out[header] = row[header];
+    }
+    return out;
+  });
+
+  return {
+    selectedHeaders: filteredHeaders,
+    records: projected,
+  };
 }
 
 router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req, res, next) => {
@@ -145,15 +203,23 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
       ? { ...viewConfig, filterColumns: [], filterValues: [] }
       : viewConfig;
     const aligned = alignRecordsToView(envelope.records, alignConfig);
-    envelope.set(aligned.records);
+    const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
+    const restricted = applyColumnAccess(aligned.records, aligned.selectedHeaders, columnAccess);
+    envelope.set(restricted.records);
 
     data.viewAlignment = {
       source: 'gas-settings',
       view: viewConfig.view,
-      selectedHeaders: aligned.selectedHeaders,
+      selectedHeaders: restricted.selectedHeaders,
       filterColumns: viewConfig.filterColumns,
       filterValues: viewConfig.filterValues,
-      rowCount: aligned.count,
+      rowCount: restricted.records.length,
+    };
+
+    data.columnAccess = {
+      configured: columnAccess.configured,
+      allowedColumns: columnAccess.columns,
+      visibleColumns: restricted.selectedHeaders,
     };
 
     res.json(data);
@@ -164,6 +230,10 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
 
 router.get('/filters', requireAuth, async (req, res, next) => {
   try {
+    if (!hasPermission(req.user, 'data:read')) {
+      return next({ status: 403, message: 'No read permission' });
+    }
+
     const response = await fetchFiltersFromGas({
       requester: req.user.email,
       databases: req.user.databases,
@@ -178,8 +248,8 @@ router.get('/filters', requireAuth, async (req, res, next) => {
 
 router.get('/dashboard', requireAuth, validate(dashboardQuerySchema, 'query'), async (req, res, next) => {
   try {
-    if (!hasPermission(req.user, 'data:read')) {
-      return next({ status: 403, message: 'No read permission' });
+    if (!hasPermission(req.user, 'dashboard:read')) {
+      return next({ status: 403, message: 'No dashboard permission' });
     }
 
     const query = req.validatedQuery;
@@ -288,7 +358,7 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
       });
     }
 
-    const access = getControlledWriteAccess(req.user.email, req.user.role, database);
+    const access = getControlledWriteAccess(req.user, database);
 
     if (!access.allowed) {
       writeAuditEvent({
@@ -297,8 +367,7 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
         target: `${database}:${view}`,
         details: {
           reason: access.reason,
-          controlledWriteCount: access.controlledWriteCount,
-          maxTestWrites: access.maxTestWrites,
+          usage: access.usage,
           strategy: mappedResult.metadata?.strategy,
           entryId: mappedResult.metadata?.entryId,
           alignment: alignedResult.alignment,
@@ -307,9 +376,11 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
       return next({ status: 403, message: 'Write not allowed' });
     }
 
+    const writeType = query.writeType === 'test' ? 'test' : 'live';
     const quotaResult = consumeUserWriteQuota({
       email: req.user.email,
-      limit: CONTROLLED_WRITE.MAX_TEST_WRITES,
+      writeType,
+      limits: req.user.quota || {},
     });
 
     if (!quotaResult.allowed) {
@@ -318,9 +389,8 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
         action: 'data.save_entry.write.blocked',
         target: `${database}:${view}`,
         details: {
-          reason: 'max_test_writes_reached',
-          controlledWriteCount: quotaResult.used,
-          maxTestWrites: quotaResult.limit,
+          reason: quotaResult.reason || 'quota_limit_reached',
+          quota: quotaResult,
           strategy: mappedResult.metadata?.strategy,
           entryId: mappedResult.metadata?.entryId,
           alignment: alignedResult.alignment,
@@ -340,8 +410,7 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
       action: 'data.save_entry.write.success',
       target: `${database}:${view}`,
       details: {
-        controlledWriteCount: quotaResult.used,
-        maxTestWrites: CONTROLLED_WRITE.MAX_TEST_WRITES,
+        quota: quotaResult,
         strategy: mappedResult.metadata?.strategy,
         entryId: mappedResult.metadata?.entryId,
         alignment: alignedResult.alignment,
@@ -359,11 +428,17 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
       alignment: alignedResult.alignment,
       writeControl: {
         mode: 'controlled',
-        allowWrite: CONTROLLED_WRITE.ALLOW_WRITE,
-        controlledWriteCount: quotaResult.used,
-        maxTestWrites: CONTROLLED_WRITE.MAX_TEST_WRITES,
-        remainingWrites: quotaResult.remaining,
+        allowWrite: true,
+        writeType,
+        dailyWrites: quotaResult.dailyWrites,
+        monthlyWrites: quotaResult.monthlyWrites,
+        totalWrites: quotaResult.totalWrites,
+        remainingDaily: quotaResult.remainingDaily,
+        remainingMonthly: quotaResult.remainingMonthly,
+        remainingTotal: quotaResult.remainingTotal,
+        remainingType: quotaResult.remainingType,
         quotaDay: quotaResult.day,
+        quotaMonth: quotaResult.month,
         rollbackReady: true,
       },
       result: gasResult,
@@ -375,8 +450,8 @@ router.post('/save-entry', requireAuth, validate(saveEntryQuerySchema, 'query'),
 
 router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (req, res, next) => {
   try {
-    if (!hasPermission(req.user, 'data:read')) {
-      return next({ status: 403, message: 'No read permission' });
+    if (!hasPermission(req.user, 'data:export')) {
+      return next({ status: 403, message: 'No export permission' });
     }
 
     const query = req.validatedQuery;
@@ -384,14 +459,112 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
       return next({ status: 403, message: 'No access to requested export' });
     }
 
+    const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
+
     const exported = await fetchExportFromGas({
       ...query,
       requester: req.user.email,
     });
 
+    if (columnAccess.configured && exported?.downloadUrl) {
+      return next({ status: 403, message: 'Restricted export download is not allowed for current column access policy' });
+    }
+
+    const envelope = extractRecordsEnvelope(exported);
+    if (envelope.records.length > 0) {
+      const viewConfig = await getViewConfigFromSource({ database: query.database, view: query.view });
+      const alignConfig = query.database === 'LACE_GAYLE'
+        ? { ...viewConfig, filterColumns: [], filterValues: [] }
+        : viewConfig;
+
+      const aligned = alignRecordsToView(envelope.records, alignConfig);
+      const restricted = applyColumnAccess(aligned.records, aligned.selectedHeaders, columnAccess);
+      envelope.set(restricted.records);
+
+      exported.columnAccess = {
+        configured: columnAccess.configured,
+        allowedColumns: columnAccess.columns,
+        visibleColumns: restricted.selectedHeaders,
+      };
+    }
+
     res.json(exported);
   } catch (error) {
     next(error);
+  }
+});
+
+router.get('/my-views', requireAuth, async (req, res, next) => {
+  try {
+    if (!hasPermission(req.user, 'data:read')) {
+      return next({ status: 403, message: 'No read permission' });
+    }
+
+    let allowedDatabases = [];
+    if (req.user.databases?.includes('*')) {
+      allowedDatabases = ['MEN_MATERIAL', 'LACE_GAYLE'];
+    } else if (Array.isArray(req.user.databases)) {
+      allowedDatabases = req.user.databases;
+    }
+
+    if (allowedDatabases.length === 0) {
+      return res.json({ views: [] });
+    }
+
+    const responses = await Promise.all(
+      allowedDatabases.map((database) => fetchViewConfigFromGas({ database })),
+    );
+
+    const assignedAllViews = req.user.views?.includes('*');
+    const assignedNames = new Set(Array.isArray(req.user.views) ? req.user.views : []);
+    const views = responses.flatMap((response, index) => {
+      const database = allowedDatabases[index];
+      const data = response?.data || response || {};
+      const configs = Array.isArray(data?.configs) ? data.configs : [];
+
+      return configs
+        .filter((config) => {
+          const rawViewName = String(config?.view || '').trim();
+          const qualifiedViewName = getQualifiedViewName({
+            database,
+            viewName: rawViewName,
+            sheetName: String(config?.sheetName || ''),
+          });
+
+          if (!rawViewName) {
+            return false;
+          }
+
+          if (assignedAllViews) {
+            return true;
+          }
+
+          if (assignedNames.has(rawViewName) || assignedNames.has(qualifiedViewName)) {
+            return true;
+          }
+
+          return Array.from(assignedNames).some((name) => isViewNameMatch(name, rawViewName));
+        })
+        .map((config) => {
+          const qualifiedViewName = getQualifiedViewName({
+            database,
+            viewName: String(config.view).trim(),
+            sheetName: String(config.sheetName || ''),
+          });
+
+          return {
+            database,
+            viewName: qualifiedViewName,
+            sheetName: String(config.sheetName || ''),
+            columnsList: Array.isArray(config.columnsList) ? config.columnsList : [],
+            columnAccess: resolveColumnAccess(req.user, database, qualifiedViewName),
+          };
+        });
+    });
+
+    return res.json({ views });
+  } catch (error) {
+    return next(error);
   }
 });
 

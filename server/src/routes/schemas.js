@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+const allowedColumnsSchema = z.object({
+  MEN_MATERIAL: z.array(z.string()).optional(),
+  LACE_GAYLE: z.array(z.string()).optional(),
+}).optional();
+
+const allowedColumnsByViewSchema = z.record(z.string(), z.array(z.string())).optional();
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -36,6 +43,22 @@ export const createUserSchema = z.object({
   role: z.enum(['admin', 'manager', 'user']).default('user'),
   databases: z.array(z.enum(['MEN_MATERIAL', 'LACE_GAYLE'])).default([]),
   views: z.array(z.string()).default([]),
+  permissions: z.object({
+    read: z.boolean().optional(),
+    write: z.boolean().optional(),
+    export: z.boolean().optional(),
+    dashboard: z.boolean().optional(),
+    viewOnly: z.boolean().optional(),
+  }).optional(),
+  quota: z.object({
+    dailyWriteLimit: z.coerce.number().int().min(0).optional(),
+    monthlyWriteLimit: z.coerce.number().int().min(0).optional(),
+    totalWriteLimit: z.coerce.number().int().min(0).optional(),
+    testWriteLimit: z.coerce.number().int().min(0).optional(),
+    liveWriteLimit: z.coerce.number().int().min(0).optional(),
+  }).optional(),
+  allowedColumns: allowedColumnsSchema,
+  allowedColumnsByView: allowedColumnsByViewSchema,
 });
 
 export const assignViewSchema = z.object({
@@ -43,6 +66,44 @@ export const assignViewSchema = z.object({
   databases: z.array(z.enum(['MEN_MATERIAL', 'LACE_GAYLE'])).optional(),
   views: z.array(z.string()).optional(),
   role: z.enum(['admin', 'manager', 'user']).optional(),
+  permissions: z.object({
+    read: z.boolean().optional(),
+    write: z.boolean().optional(),
+    export: z.boolean().optional(),
+    dashboard: z.boolean().optional(),
+    viewOnly: z.boolean().optional(),
+  }).optional(),
+  quota: z.object({
+    dailyWriteLimit: z.coerce.number().int().min(0).optional(),
+    monthlyWriteLimit: z.coerce.number().int().min(0).optional(),
+    totalWriteLimit: z.coerce.number().int().min(0).optional(),
+    testWriteLimit: z.coerce.number().int().min(0).optional(),
+    liveWriteLimit: z.coerce.number().int().min(0).optional(),
+  }).optional(),
+  allowedColumns: allowedColumnsSchema,
+  allowedColumnsByView: allowedColumnsByViewSchema,
+});
+
+export const updateUserSchema = z.object({
+  role: z.enum(['admin', 'manager', 'user']).optional(),
+  databases: z.array(z.enum(['MEN_MATERIAL', 'LACE_GAYLE'])).optional(),
+  views: z.array(z.string()).optional(),
+  permissions: z.object({
+    read: z.boolean().optional(),
+    write: z.boolean().optional(),
+    export: z.boolean().optional(),
+    dashboard: z.boolean().optional(),
+    viewOnly: z.boolean().optional(),
+  }).optional(),
+  quota: z.object({
+    dailyWriteLimit: z.coerce.number().int().min(0).optional(),
+    monthlyWriteLimit: z.coerce.number().int().min(0).optional(),
+    totalWriteLimit: z.coerce.number().int().min(0).optional(),
+    testWriteLimit: z.coerce.number().int().min(0).optional(),
+    liveWriteLimit: z.coerce.number().int().min(0).optional(),
+  }).optional(),
+  allowedColumns: allowedColumnsSchema,
+  allowedColumnsByView: allowedColumnsByViewSchema,
 });
 
 export const dashboardQuerySchema = z.object({
@@ -56,6 +117,7 @@ export const saveEntryQuerySchema = z.object({
   view: z.string().optional(),
   sheet_key: z.string().optional(),
   dryRun: z.coerce.boolean().optional(),
+  writeType: z.enum(['test', 'live']).optional(),
 });
 
 export const saveEntryBodySchema = z.object({
@@ -94,4 +156,9 @@ export const verifyViewAlignmentQuerySchema = z.object({
 
 export const gasViewsQuerySchema = z.object({
   database: z.enum(['MEN_MATERIAL', 'LACE_GAYLE']),
+});
+
+export const adminColumnsQuerySchema = z.object({
+  database: z.enum(['MEN_MATERIAL', 'LACE_GAYLE']),
+  view: z.string().min(1),
 });

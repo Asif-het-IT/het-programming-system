@@ -4,17 +4,20 @@ import { validate } from '../middleware/validate.js';
 import {
   createUserSchema,
   assignViewSchema,
+  updateUserSchema,
   resetPasswordSchema,
   userStatusSchema,
   auditQuerySchema,
   dailyAuditReportQuerySchema,
   verifyViewAlignmentQuerySchema,
   gasViewsQuerySchema,
+  adminColumnsQuerySchema,
 } from './schemas.js';
 import {
   listUsers,
   createUser,
   assignView,
+  updateUser,
   deleteUser,
   resetUserPassword,
   setUserStatus,
@@ -22,10 +25,18 @@ import {
 import { listAuditEvents, writeAuditEvent } from '../data/auditLog.js';
 import { getDailyAuditReport, listDailyAuditReports } from '../data/auditReports.js';
 import { fetchDataFromGas, fetchViewOutputFromGas, fetchViewConfigFromGas } from '../services/gasClient.js';
-import { getViewConfigFromSource } from '../services/viewConfigService.js';
+import { getQualifiedViewName, getViewConfigFromSource } from '../services/viewConfigService.js';
 import { alignRecordsToView, compareViewOutputs } from '../services/viewProjectionService.js';
 
 const router = Router();
+
+function extractRows(payload) {
+  if (Array.isArray(payload?.data?.records)) return payload.data.records;
+  if (Array.isArray(payload?.records)) return payload.records;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+}
 
 router.use(requireAuth, requirePermission('admin:manage'));
 
@@ -64,6 +75,32 @@ router.put('/assign-view', validate(assignViewSchema), (req, res, next) => {
       details: {
         databases: updated.databases,
         viewsCount: updated.views?.length || 0,
+        permissions: updated.permissions,
+        quota: updated.quota,
+      },
+    });
+    res.json({ user: updated });
+  } catch (error) {
+    next({ status: 400, message: error.message });
+  }
+});
+
+router.put('/user/:email', validate(updateUserSchema), (req, res, next) => {
+  try {
+    const actor = req.user?.email;
+    const updated = updateUser(req.params.email, req.body);
+    writeAuditEvent({
+      actor,
+      action: 'admin.user.update',
+      target: updated.email,
+      details: {
+        role: updated.role,
+        databases: updated.databases,
+        viewsCount: updated.views?.length || 0,
+        permissions: updated.permissions,
+        quota: updated.quota,
+        allowedColumns: updated.allowedColumns,
+        allowedColumnsByView: updated.allowedColumnsByView,
       },
     });
     res.json({ user: updated });
@@ -258,6 +295,80 @@ router.get('/gas-views', validate(gasViewsQuerySchema, 'query'), async (req, res
       }));
 
     return res.json({ database, count: views.length, views });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/views', async (req, res, next) => {
+  try {
+    const databases = ['MEN_MATERIAL', 'LACE_GAYLE'];
+    const results = await Promise.all(databases.map(async (database) => {
+      const response = await fetchViewConfigFromGas({ database });
+      const data = response?.data || response || {};
+      const configs = Array.isArray(data?.configs) ? data.configs : [];
+
+      return configs
+        .filter((c) => c && String(c.view || '').trim())
+        .map((c) => ({
+          database,
+          viewName: getQualifiedViewName({
+            database,
+            viewName: String(c.view).trim(),
+            sheetName: String(c.sheetName || ''),
+          }),
+          sheetName: String(c.sheetName || ''),
+          filterColumns: Array.isArray(c.filterColumns) ? c.filterColumns : [],
+          filterValues: Array.isArray(c.filterValues) ? c.filterValues : [],
+          columnsList: Array.isArray(c.columnsList) ? c.columnsList : [],
+        }));
+    }));
+
+    const views = results.flat();
+    return res.json({ count: views.length, views });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/columns', validate(adminColumnsQuerySchema, 'query'), async (req, res, next) => {
+  try {
+    const { database, view } = req.validatedQuery;
+    let payload;
+
+    if (database === 'LACE_GAYLE') {
+      payload = await fetchViewOutputFromGas({
+        database,
+        view,
+        page: 1,
+        pageSize: 1,
+        requester: req.user?.email,
+      });
+    } else {
+      const viewConfig = await getViewConfigFromSource({ database, view });
+      const gasFilterParams = {};
+      const cols = viewConfig.filterColumns || [];
+      const vals = viewConfig.filterValues || [];
+      cols.forEach((col, i) => {
+        if (col && vals[i] !== undefined && vals[i] !== '') {
+          gasFilterParams[col] = vals[i];
+        }
+      });
+
+      payload = await fetchDataFromGas({
+        database,
+        view,
+        page: 1,
+        pageSize: 1,
+        ...gasFilterParams,
+        requester: req.user?.email,
+      });
+    }
+
+    const rows = extractRows(payload);
+    const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+    return res.json({ database, view, count: columns.length, columns });
   } catch (error) {
     return next(error);
   }

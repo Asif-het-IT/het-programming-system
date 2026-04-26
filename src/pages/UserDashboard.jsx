@@ -7,7 +7,7 @@ import { Download, LogOut, Loader2, AlertCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getDataRequest, getExportRequest } from '@/api/enterpriseApi';
+import { getDataRequest, getExportRequest, getMyViewsRequest } from '@/api/enterpriseApi';
 import ThemeToggle from '@/components/ThemeToggle';
 import PwaInstallButton from '@/components/PwaInstallButton';
 
@@ -27,6 +27,16 @@ function normalizeRows(payload) {
   if (!payload) {
     return [];
   }
+  const envelope = payload?.data && typeof payload.data === 'object' ? payload.data : payload;
+
+  if (Array.isArray(envelope.records)) {
+    return envelope.records;
+  }
+
+  if (Array.isArray(envelope.items)) {
+    return envelope.items;
+  }
+
   if (Array.isArray(payload)) {
     return payload;
   }
@@ -39,9 +49,8 @@ function normalizeRows(payload) {
 export default function UserDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const safeViews = user?.views || [];
   const [selectedDatabase, setSelectedDatabase] = useState('all');
-  const [selectedViewName, setSelectedViewName] = useState(user?.views?.[0]?.viewName || '');
+  const [selectedViewName, setSelectedViewName] = useState('');
   const [search, setSearch] = useState('');
   const [marka, setMarka] = useState('');
   const [product, setProduct] = useState('');
@@ -52,6 +61,25 @@ export default function UserDashboard() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [page, setPage] = useState(0);
   const parentRef = useRef(null);
+
+  const { data: viewPayload, isLoading: isLoadingViews } = useQuery({
+    queryKey: ['my-views'],
+    queryFn: getMyViewsRequest,
+    enabled: Boolean(user?.email),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const safeViews = useMemo(() => {
+    if (!Array.isArray(viewPayload?.views)) {
+      return [];
+    }
+
+    return viewPayload.views.map((view) => ({
+      database: view.database,
+      viewName: view.viewName,
+      columnsList: Array.isArray(view.columnsList) ? view.columnsList : [],
+    }));
+  }, [viewPayload]);
 
   const availableDatabases = useMemo(() => {
     const set = new Set(safeViews.map((view) => view.database).filter(Boolean));
@@ -67,6 +95,7 @@ export default function UserDashboard() {
 
   useEffect(() => {
     if (!filteredViews.length) {
+      setSelectedViewName('');
       return;
     }
 
@@ -78,7 +107,6 @@ export default function UserDashboard() {
   }, [filteredViews, selectedViewName]);
 
   const currentView = filteredViews.find((v) => v.viewName === selectedViewName) || filteredViews[0] || safeViews[0];
-  const visibleColumns = currentView?.columnsList || [];
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['enterprise-data', currentView?.database, currentView?.viewName, page, search, marka, product, dsn, fromDate, toDate, sortBy, sortOrder],
@@ -101,7 +129,23 @@ export default function UserDashboard() {
   });
 
   const rows = useMemo(() => normalizeRows(data), [data]);
-  const totalRecords = data?.total ?? rows.length;
+  const dataEnvelope = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+    if (data.data && typeof data.data === 'object') {
+      return data.data;
+    }
+    return data;
+  }, [data]);
+
+  const visibleColumns = useMemo(() => {
+    if (rows.length > 0) {
+      return Object.keys(rows[0]);
+    }
+    return currentView?.columnsList || [];
+  }, [rows, currentView]);
+  const totalRecords = dataEnvelope?.total ?? dataEnvelope?.count ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
 
   const virtualizer = useVirtualizer({
@@ -140,7 +184,7 @@ export default function UserDashboard() {
         </div>
       </div>
     );
-  } else if (isLoading) {
+  } else if (isLoadingViews || isLoading) {
     mainContent = (
       <div className="flex items-center justify-center p-12">
         <div className="flex flex-col items-center gap-3">

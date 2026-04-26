@@ -5,10 +5,13 @@ import {
   createUserRequest,
   getUsersRequest,
   assignViewRequest,
+  updateUserConfigRequest,
   deleteUserRequest,
   resetPasswordRequest,
   setUserStatusRequest,
   getAuditLogRequest,
+  getAdminViewsRequest,
+  getAdminColumnsRequest,
 } from '@/api/enterpriseApi';
 
 const AuthContext = createContext();
@@ -27,13 +30,43 @@ export const AuthProvider = ({ children }) => {
     return response.users || [];
   };
 
-  const addUser = async (email, password, viewNames = [], role = 'user', databases = ['MEN_MATERIAL']) => {
+  const addUser = async (email, password, options = {}) => {
+    if (email && typeof email === 'object') {
+      const legacy = email;
+      const response = await createUserRequest({
+        email: legacy.email,
+        password: legacy.password,
+        role: legacy.role || 'user',
+        views: legacy.views || [],
+        databases: legacy.databases || ['MEN_MATERIAL'],
+        permissions: legacy.permissions,
+        quota: legacy.quota,
+        allowedColumns: legacy.allowedColumns,
+        allowedColumnsByView: legacy.allowedColumnsByView,
+      });
+      return response.user;
+    }
+
+    const {
+      viewNames = [],
+      role = 'user',
+      databases = ['MEN_MATERIAL'],
+      permissions,
+      quota,
+      allowedColumns,
+      allowedColumnsByView,
+    } = options;
+
     const response = await createUserRequest({
       email,
       password,
       role,
       views: viewNames,
       databases,
+      permissions,
+      quota,
+      allowedColumns,
+      allowedColumnsByView,
     });
 
     return response.user;
@@ -46,6 +79,11 @@ export const AuthProvider = ({ children }) => {
       databases,
     });
 
+    return response.user;
+  };
+
+  const updateUserConfig = async (email, payload) => {
+    const response = await updateUserConfigRequest(email, payload);
     return response.user;
   };
 
@@ -69,6 +107,16 @@ export const AuthProvider = ({ children }) => {
     return response.events || [];
   };
 
+  const getAdminViews = async () => {
+    const response = await getAdminViewsRequest();
+    return response.views || [];
+  };
+
+  const getAdminColumns = async (database, view) => {
+    const response = await getAdminColumnsRequest({ database, view });
+    return response.columns || [];
+  };
+
   const value = useMemo(() => ({
     user,
     isAuthenticated: Boolean(user),
@@ -78,10 +126,13 @@ export const AuthProvider = ({ children }) => {
     addUser,
     getAllUsers,
     updateUserViewAssignments,
+    updateUserConfig,
     deleteUser,
     resetPassword,
     setUserStatus,
     getAuditLog,
+    getAdminViews,
+    getAdminColumns,
   }), [user, isLoading]);
 
   return (

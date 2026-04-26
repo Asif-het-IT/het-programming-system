@@ -9,6 +9,34 @@
     --font-inter: 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
+    --background: 210 33% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 189 94% 43%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 31% 86%;
+    --input: 214 31% 86%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 189 94% 43%;
+    --chart-3: 31 96% 57%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 339 82% 56%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
     --background: 230 25% 7%;
     --foreground: 220 20% 95%;
     --card: 230 22% 10%;
@@ -33,7 +61,6 @@
     --chart-3: 45 95% 60%;
     --chart-4: 200 80% 55%;
     --chart-5: 340 75% 55%;
-    --radius: 0.75rem;
   }
 }
 
@@ -47,8 +74,8 @@
   }
 }
 
-/* Custom scrollbar */
+/* Theme-aware scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: hsl(230 25% 7%); }
-::-webkit-scrollbar-thumb { background: hsl(230 15% 25%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(230 15% 35%); }
+::-webkit-scrollbar-track { background: hsl(var(--background)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }

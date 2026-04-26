@@ -35,6 +35,11 @@ export async function assignViewRequest(payload) {
   return data;
 }
 
+export async function updateUserConfigRequest(email, payload) {
+  const { data } = await httpClient.put(`/admin/user/${encodeURIComponent(email)}`, payload);
+  return data;
+}
+
 export async function deleteUserRequest(email) {
   const { data } = await httpClient.delete(`/admin/user/${encodeURIComponent(email)}`);
   return data;
@@ -52,5 +57,20 @@ export async function setUserStatusRequest(payload) {
 
 export async function getAuditLogRequest(limit = 100) {
   const { data } = await httpClient.get('/admin/audit-log', { params: { limit } });
+  return data;
+}
+
+export async function getAdminViewsRequest() {
+  const { data } = await httpClient.get('/admin/views');
+  return data;
+}
+
+export async function getAdminColumnsRequest(params) {
+  const { data } = await httpClient.get('/admin/columns', { params });
+  return data;
+}
+
+export async function getMyViewsRequest() {
+  const { data } = await httpClient.get('/my-views');
   return data;
 }
