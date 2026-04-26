@@ -17,6 +17,7 @@ import AmountByMarkaChart from "../components/dashboard/AmountByMarkaChart";
 import OverdueChart from "../components/dashboard/OverdueChart";
 import ShipmentStatusCards from "../components/dashboard/ShipmentStatusCards";
 import OrdersTable from "../components/dashboard/OrdersTable";
+import HetLogo from "@/components/HetLogo";
 
 const DASHBOARD_LOADING_KEYS = ["card-1", "card-2", "card-3", "card-4"];
 
@@ -81,12 +82,15 @@ export default function Dashboard() {
       <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-2xl font-bold text-foreground tracking-tight">
-                Programming Database
-              </motion.h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Textile Orders & Shipment Tracking</p>
-              <p className="text-xs text-primary mt-1">Active Database: {formatDatabaseLabel(activeDatabase)}</p>
+            <div className="flex items-center gap-3">
+              <HetLogo size={34} />
+              <div>
+                <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-2xl font-bold text-foreground tracking-tight">
+                  het Database
+                </motion.h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Textile Orders & Shipment Tracking</p>
+                <p className="text-xs text-primary mt-1">Active Database: {formatDatabaseLabel(activeDatabase)}</p>
+              </div>
             </div>
             <DashboardFilters orders={scopedOrders} filters={filters} setFilters={setFilters} />
           </div>

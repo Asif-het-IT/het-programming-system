@@ -11,6 +11,7 @@ import { getDataRequest, getExportRequest, getMyViewsRequest } from '@/api/enter
 import ThemeToggle from '@/components/ThemeToggle';
 import PwaInstallButton from '@/components/PwaInstallButton';
 import NotificationSetup from '@/components/NotificationSetup';
+import HetLogo from '@/components/HetLogo';
 
 const FIELD_LABELS = {
   A: 'Col A', B: 'Col B', C: 'Col C', D: 'Col D', E: 'Col E', F: 'Col F', G: 'Col G', H: 'Col H',
@@ -314,9 +315,12 @@ export default function UserDashboard() {
     <div className="min-h-screen bg-background">
       <div className="border-b border-border bg-card/50 px-6 py-4">
         <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-bold">Het Database</h1>
+          <div className="flex items-center gap-3">
+            <HetLogo size={34} />
+            <div>
+              <h1 className="text-xl font-bold">het Database</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Welcome, {user.email}</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <NotificationSetup compact />

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertCircle, LogIn } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import AnimatedHetLogo from "@/components/AnimatedHetLogo";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -42,11 +43,11 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-block bg-primary/10 p-3 rounded-lg mb-4">
-              <LogIn className="h-8 w-8 text-primary" />
+            <div className="mb-4 flex justify-center">
+              <AnimatedHetLogo size={100} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Het Database</h1>
-            <p className="text-sm text-slate-500 mt-2">Apna view dekho</p>
+            <h1 className="text-2xl font-bold text-slate-900">het Database</h1>
+            <p className="text-sm text-slate-500 mt-2">Enterprise data access platform</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">

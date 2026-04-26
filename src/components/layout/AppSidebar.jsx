@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, ShieldCheck, Menu, X, BarChart2, Briefcase, Database, Eye
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import HetLogo from "@/components/HetLogo";
 
 const NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -34,14 +35,12 @@ export default function AppSidebar({ children }) {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b border-border transition-all ${collapsed ? "justify-center" : ""}`}>
-        <div className="h-8 w-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-          <span className="text-primary font-bold text-sm">H</span>
-        </div>
+        <HetLogo size={24} imageClassName="max-h-6 max-w-6" />
         <AnimatePresence>
           {isExpanded && (
             <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} className="overflow-hidden whitespace-nowrap">
               <p className="text-sm font-bold text-foreground">het</p>
-              <p className="text-[10px] text-muted-foreground">Programming Database</p>
+              <p className="text-[10px] text-muted-foreground">Database Platform</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -152,7 +151,8 @@ export default function AppSidebar({ children }) {
           <button type="button" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
-          <p className="text-sm font-bold text-foreground">Programming Database</p>
+          <HetLogo size={20} imageClassName="max-h-5 max-w-5" />
+          <p className="text-sm font-bold text-foreground">het Database</p>
         </div>
 
         <main className="flex-1 overflow-y-auto">

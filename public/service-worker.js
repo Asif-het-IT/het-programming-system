@@ -41,8 +41,8 @@ globalThis.addEventListener('push', (event) => {
     }
   }
 
-  const badgeUrl = '/icon-192.png';
-  const iconUrl = '/icon-512.png';
+  const badgeUrl = '/icons/het-192.png';
+  const iconUrl = '/icons/het-512.png';
 
   const priorityToVibrate = {
     emergency: [300, 100, 300, 100, 300],

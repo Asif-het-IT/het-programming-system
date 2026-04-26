@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import HetLogo from '@/components/HetLogo';
 import { LogOut, Trash2, Plus, User, Eye, KeyRound, ShieldCheck, ShieldOff, PencilLine, Bell, Send, Activity, RefreshCw, RotateCcw, Database, Server, Cloud, Monitor, Code, Table2, ChevronDown, ChevronUp, Trash } from 'lucide-react';
 import {
   getNotificationSubscribersRequest,
@@ -888,9 +889,12 @@ export default function AdminPanel() {
     <div className="min-h-screen bg-background">
       <div className="border-b border-border bg-card/50 px-6 py-4">
         <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-bold">Admin Panel</h1>
+          <div className="flex items-center gap-3">
+            <HetLogo size={34} />
+            <div>
+              <h1 className="text-xl font-bold">Admin Panel</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Account setup, permissions, scopes and quotas</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="default" onClick={openCreateForm}>

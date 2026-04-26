@@ -128,3 +128,22 @@ programming-database/
 | Business Logic | Google Apps Script (CLASP-managed) |
 | Database | Google Sheets |
 | Deploy | cPanel VPS + Cloudflare |
+
+---
+
+## Join the Team — Open Collaboration
+
+We are scaling this platform and looking for skilled professionals to join the **het AI Agent project**.
+
+If you have experience in any of the roles below, feel free to reach out:
+
+| Role | Focus |
+|---|---|
+| 🎨 **UI/UX Designer** | Modern, user-friendly interfaces and design systems |
+| 💻 **Frontend Developer** | Responsive UI, smooth UX, React / Tailwind |
+| ⚙️ **Backend Developer** | APIs, server logic, system integration |
+| 🗄️ **Database Engineer** | Efficient data management and query optimization |
+| 🔐 **Security Expert** | Data protection, secure architecture, OWASP compliance |
+| 🚀 **DevOps Engineer** | Deployment pipelines, server management, scalability |
+
+We are building enterprise-grade SaaS tools and welcome professionals who care about quality, performance, and clean architecture.
