@@ -1,0 +1,14 @@
+{
+  "status": "degraded",
+  "timestamp": "2026-04-27T21:50:03.049Z",
+  "metrics": {
+    "successRate": "25.00%",
+    "totalAlerts": 4,
+    "openCritical": 0,
+    "totalFailures": 0,
+    "channelsOperational": 6
+  },
+  "alerts": [
+    "Low success rate: 25.00%"
+  ]
+}

@@ -80,6 +80,58 @@ function normalizeAllowedColumnsByView(input) {
   return out;
 }
 
+function normalizeRuleValueList(raw) {
+  const values = Array.isArray(raw) ? raw : [raw];
+  const seen = new Set();
+  const out = [];
+
+  for (const valueItem of values) {
+    const value = String(valueItem ?? '').trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+
+  return out;
+}
+
+function normalizeFilterValueRulesByView(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return {};
+  }
+
+  const out = {};
+  for (const [viewName, ruleSet] of Object.entries(input)) {
+    const safeView = String(viewName || '').trim();
+    if (!safeView) continue;
+
+    const cols = Array.isArray(ruleSet?.filterColumns)
+      ? ruleSet.filterColumns.map((col) => String(col || '').trim()).filter(Boolean)
+      : [];
+    const valsRaw = Array.isArray(ruleSet?.filterValues) ? ruleSet.filterValues : [];
+    const nextColumns = [];
+    const nextValues = [];
+
+    for (let i = 0; i < cols.length; i += 1) {
+      const column = cols[i];
+      const values = normalizeRuleValueList(valsRaw[i]);
+      for (const value of values) {
+        nextColumns.push(column);
+        nextValues.push(value);
+      }
+    }
+
+    out[safeView] = {
+      filterColumns: nextColumns,
+      filterValues: nextValues,
+    };
+  }
+
+  return out;
+}
+
 function sanitizeQuotaValue(value, fallback) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return fallback;
@@ -127,6 +179,8 @@ function normalizeUserRecord(record) {
     quota: normalizeQuota(record?.quota),
     allowedColumns: normalizeAllowedColumns(record?.allowedColumns),
     allowedColumnsByView: normalizeAllowedColumnsByView(record?.allowedColumnsByView),
+    allowedFilterColumnsByView: normalizeAllowedColumnsByView(record?.allowedFilterColumnsByView),
+    filterValueRulesByView: normalizeFilterValueRulesByView(record?.filterValueRulesByView),
     disabled: Boolean(record?.disabled),
   };
 }
@@ -254,6 +308,8 @@ export function createUser(input) {
     quota: normalizeQuota(input.quota),
     allowedColumns: normalizeAllowedColumns(input.allowedColumns),
     allowedColumnsByView: normalizeAllowedColumnsByView(input.allowedColumnsByView),
+    allowedFilterColumnsByView: normalizeAllowedColumnsByView(input.allowedFilterColumnsByView),
+    filterValueRulesByView: normalizeFilterValueRulesByView(input.filterValueRulesByView),
     disabled: false,
     passwordHash: bcrypt.hashSync(input.password, 10),
   };
@@ -284,6 +340,12 @@ export function assignView(email, payload) {
   }
   if (payload.allowedColumnsByView !== undefined) {
     user.allowedColumnsByView = normalizeAllowedColumnsByView(payload.allowedColumnsByView);
+  }
+  if (payload.allowedFilterColumnsByView !== undefined) {
+    user.allowedFilterColumnsByView = normalizeAllowedColumnsByView(payload.allowedFilterColumnsByView);
+  }
+  if (payload.filterValueRulesByView !== undefined) {
+    user.filterValueRulesByView = normalizeFilterValueRulesByView(payload.filterValueRulesByView);
   }
 
   writeUsersDb(users);

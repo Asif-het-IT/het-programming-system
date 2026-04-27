@@ -77,6 +77,13 @@ Create or bootstrap an admin first, then log in manually:
 1. Login as your bootstrap admin
 2. Click "Admin Panel" in sidebar
 
+### Dynamic Database Contract
+- Data Range accepts continuous ranges only, for example `A:H`, `A:AZ`, or `A:BE`
+- Non-continuous ranges such as `A,B,E,F` are invalid and must be rejected by the backend
+- Visible columns belong in View Builder only, for example `A,B,E,F` or header names
+- Filters and sort must use only the selected visible columns
+- API and export responses must return only the selected view columns after access control is applied
+
 ### Users Tab
 - See the current admin-created users listed
 - Each has assigned views and role metadata

@@ -2,8 +2,8 @@ import { env } from '../config/env.js';
 import { clearCache, getCache, setCache } from './cache.js';
 import { logSyncEvent } from '../data/syncLog.js';
 import { recordFetchSuccess, recordFetchError, recordCacheHit } from '../data/monitorState.js';
-import { notifySyncFailure } from './syncAlerts.js';
 import { getDatabaseByName } from '../data/databaseRegistry.js';
+import { reportPerformanceEvent, reportSyncOperationResult } from './alertService.js';
 
 const RETRYABLE_STATUS_CODES = new Set(
   Array.isArray(env.gasRetryStatusCodes) && env.gasRetryStatusCodes.length > 0
@@ -383,7 +383,15 @@ async function reportFailure({
   recordFetchError(database, { durationMs, error: errorText });
   logSyncEvent({ database, action, status: 'error', durationMs, error: errorText, layer, requestUrl, responseSize, ...logMeta });
   if (!shouldSuppressAlerts) {
-    await notifySyncFailure({ database, view: logMeta.view, layer, error: errorText, requestUrl });
+    await reportSyncOperationResult({
+      database,
+      view: logMeta.view,
+      api: action,
+      layer,
+      durationMs,
+      success: false,
+      error: errorText,
+    });
   }
 }
 
@@ -401,6 +409,15 @@ async function callGasGet(api, params = {}, useCache = true, ttlMs = env.cacheTt
     if (cached) {
       recordCacheHit(database);
       logSyncEvent({ database, action, status: 'cache_hit', cacheHit: true, layer: 'cache', ...extractLogMeta(params, cached) });
+      void reportPerformanceEvent({
+        database,
+        view: params.view || null,
+        api,
+        layer: 'cache',
+        durationMs: 1,
+        rowCount: countRecords(cached),
+        cacheHit: true,
+      });
       return cached;
     }
   }
@@ -432,6 +449,25 @@ async function callGasGet(api, params = {}, useCache = true, ttlMs = env.cacheTt
     const recordCount = countRecords(data);
     recordFetchSuccess(database, { durationMs, recordCount });
     logSyncEvent({ database, action, status: 'success', durationMs, recordCount, layer, requestUrl, responseSize, ...extractLogMeta(params, data) });
+    void reportPerformanceEvent({
+      database,
+      view: params.view || null,
+      api,
+      layer,
+      durationMs,
+      rowCount: recordCount,
+      cacheHit: false,
+    });
+    if (!shouldSuppressAlerts) {
+      void reportSyncOperationResult({
+        database,
+        view: params.view || null,
+        api,
+        layer,
+        durationMs,
+        success: true,
+      });
+    }
 
     setCache(cacheKey, data, ttlMs);
     return data;
@@ -477,6 +513,23 @@ async function callGasPost(api, body = {}, query = {}) {
     const data = parseGasPayload(rawText, api);
 
     logSyncEvent({ database, action, status: 'success', durationMs, layer, requestUrl, responseSize });
+    void reportPerformanceEvent({
+      database,
+      view: query.view || null,
+      api,
+      layer,
+      durationMs,
+      rowCount: null,
+      cacheHit: false,
+    });
+    void reportSyncOperationResult({
+      database,
+      view: query.view || null,
+      api,
+      layer,
+      durationMs,
+      success: true,
+    });
 
     // Writes invalidate read-side caches so users see updated records quickly.
     clearCache();
@@ -487,6 +540,15 @@ async function callGasPost(api, body = {}, query = {}) {
       const layer = getRequestLayer(target);
       recordFetchError(database, { durationMs, error: String(err.message) });
       logSyncEvent({ database, action, status: 'error', durationMs, error: String(err.message), layer, requestUrl, responseSize });
+      void reportSyncOperationResult({
+        database,
+        view: query.view || null,
+        api,
+        layer,
+        durationMs,
+        success: false,
+        error: String(err.message),
+      });
       failureHandled = true;
     }
     throw err;

@@ -1,0 +1,52 @@
+[
+  {
+    "path": "/api/monitoring/health",
+    "status": 404,
+    "ok": false
+  },
+  {
+    "path": "/api/monitoring/metrics",
+    "status": 404,
+    "ok": false
+  },
+  {
+    "path": "/api/monitoring/slo-status",
+    "status": 404,
+    "ok": false
+  },
+  {
+    "path": "/api/monitoring/channels",
+    "status": 404,
+    "ok": false
+  },
+  {
+    "path": "/api/monitoring/retries",
+    "status": 404,
+    "ok": false
+  },
+  {
+    "path": "/api/admin/monitoring/health",
+    "status": 401,
+    "ok": false
+  },
+  {
+    "path": "/api/admin/monitoring/dashboard",
+    "status": 401,
+    "ok": false
+  },
+  {
+    "path": "/api/admin/monitoring/slo-status",
+    "status": 401,
+    "ok": false
+  },
+  {
+    "path": "/api/admin/monitoring/channels",
+    "status": 401,
+    "ok": false
+  },
+  {
+    "path": "/api/admin/monitoring/retries",
+    "status": 401,
+    "ok": false
+  }
+]

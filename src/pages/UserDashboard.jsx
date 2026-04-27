@@ -73,6 +73,7 @@ export default function UserDashboard() {
   const [toDate, setToDate] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [columnFilters, setColumnFilters] = useState({});
   const [page, setPage] = useState(0);
   const [showDebug, setShowDebug] = useState(false);
   const parentRef = useRef(null);
@@ -93,6 +94,8 @@ export default function UserDashboard() {
       database: view.database,
       viewName: view.viewName,
       columnsList: Array.isArray(view.columnsList) ? view.columnsList : [],
+      filterableColumns: Array.isArray(view.filterableColumns) ? view.filterableColumns : [],
+      source: view.source || 'legacy',
     }));
   }, [viewPayload]);
 
@@ -131,15 +134,42 @@ export default function UserDashboard() {
   }, [filteredViews, selectedViewKey]);
 
   const currentView = filteredViews.find((v) => getViewKey(v) === selectedViewKey) || filteredViews[0] || safeViews[0];
+  const isDynamicView = currentView?.source === 'dynamic';
+  const showLegacyFilters = currentView?.source !== 'dynamic';
+
+  const filterableColumns = useMemo(() => {
+    return uniqueValues(currentView?.filterableColumns || []);
+  }, [currentView]);
+
+  useEffect(() => {
+    const defaults = {};
+    for (const column of filterableColumns) {
+      defaults[column] = '';
+    }
+    setColumnFilters(defaults);
+    setPage(0);
+  }, [selectedViewKey, filterableColumns]);
+
+  const activeColumnFilters = useMemo(() => {
+    const out = {};
+    for (const [key, value] of Object.entries(columnFilters || {})) {
+      const clean = String(value || '').trim();
+      if (clean) out[key] = clean;
+    }
+    return out;
+  }, [columnFilters]);
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['enterprise-data', currentView?.database, currentView?.viewName, page, search, marka, product, dsn, fromDate, toDate, sortBy, sortOrder],
+    queryKey: ['enterprise-data', currentView?.database, currentView?.viewName, page, search, marka, product, dsn, fromDate, toDate, sortBy, sortOrder, JSON.stringify(activeColumnFilters)],
     queryFn: () => getDataRequest({
       database: currentView?.database,
       view: currentView?.viewName,
       page: page + 1,
       pageSize: PAGE_SIZE,
       search: search || undefined,
+      columnFilters: isDynamicView && Object.keys(activeColumnFilters).length > 0
+        ? JSON.stringify(activeColumnFilters)
+        : undefined,
       marka: marka || undefined,
       product: product || undefined,
       dsn: dsn || undefined,
@@ -410,11 +440,11 @@ export default function UserDashboard() {
           </div>
 
           <Input placeholder="Search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
-          <Input placeholder="Marka" value={marka} onChange={(e) => { setMarka(e.target.value); setPage(0); }} />
-          <Input placeholder="Product" value={product} onChange={(e) => { setProduct(e.target.value); setPage(0); }} />
-          <Input placeholder="DSN" value={dsn} onChange={(e) => { setDsn(e.target.value); setPage(0); }} />
-          <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} />
-          <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(0); }} />
+          {showLegacyFilters ? <Input placeholder="Marka" value={marka} onChange={(e) => { setMarka(e.target.value); setPage(0); }} /> : null}
+          {showLegacyFilters ? <Input placeholder="Product" value={product} onChange={(e) => { setProduct(e.target.value); setPage(0); }} /> : null}
+          {showLegacyFilters ? <Input placeholder="DSN" value={dsn} onChange={(e) => { setDsn(e.target.value); setPage(0); }} /> : null}
+          {showLegacyFilters ? <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} /> : null}
+          {showLegacyFilters ? <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(0); }} /> : null}
           <Select value={sortBy || 'none'} onValueChange={(value) => setSortBy(value === 'none' ? '' : value)}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -447,6 +477,29 @@ export default function UserDashboard() {
             </Button>
           </div>
         </div>
+
+        {isDynamicView && filterableColumns.length > 0 ? (
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Enabled Filters</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-2">
+              {filterableColumns.map((column) => (
+                <div key={`dyn-filter-${column}`} className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground">{FIELD_LABELS[column] || column}</p>
+                  <Input
+                    value={columnFilters[column] || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setColumnFilters((prev) => ({ ...prev, [column]: value }));
+                      setPage(0);
+                    }}
+                    placeholder={`Filter ${FIELD_LABELS[column] || column}`}
+                    className="h-8"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {mainContent}
       </div>

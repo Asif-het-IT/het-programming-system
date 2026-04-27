@@ -34,4 +34,13 @@ export const env = {
   webPushPublicKey: process.env.WEB_PUSH_PUBLIC_KEY || '',
   webPushPrivateKey: process.env.WEB_PUSH_PRIVATE_KEY || '',
   webPushSubject: process.env.WEB_PUSH_SUBJECT || 'mailto:admin@example.com',
+  telegramAlertsEnabled: String(process.env.TELEGRAM_ALERTS_ENABLED || 'false').toLowerCase() === 'true',
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
+  emailAlertsEnabled: String(process.env.EMAIL_ALERTS_ENABLED || 'false').toLowerCase() === 'true',
+  smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: Number(process.env.SMTP_PORT || 0),
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  alertEmailTo: process.env.ALERT_EMAIL_TO || '',
 };

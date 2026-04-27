@@ -26,8 +26,8 @@ export const AuthProvider = ({ children }) => {
   const login = (email, password) => loginStore(email, password);
   const logout = () => logoutStore();
 
-  const getAllUsers = async () => {
-    const response = await getUsersRequest();
+  const getAllUsers = async (options = {}) => {
+    const response = await getUsersRequest(options);
     return response.users || [];
   };
 
@@ -44,6 +44,8 @@ export const AuthProvider = ({ children }) => {
         quota: legacy.quota,
         allowedColumns: legacy.allowedColumns,
         allowedColumnsByView: legacy.allowedColumnsByView,
+        allowedFilterColumnsByView: legacy.allowedFilterColumnsByView,
+        filterValueRulesByView: legacy.filterValueRulesByView,
       });
       return response.user;
     }
@@ -56,6 +58,8 @@ export const AuthProvider = ({ children }) => {
       quota,
       allowedColumns,
       allowedColumnsByView,
+      allowedFilterColumnsByView,
+      filterValueRulesByView,
     } = options;
 
     const response = await createUserRequest({
@@ -68,6 +72,8 @@ export const AuthProvider = ({ children }) => {
       quota,
       allowedColumns,
       allowedColumnsByView,
+      allowedFilterColumnsByView,
+      filterValueRulesByView,
     });
 
     return response.user;

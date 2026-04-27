@@ -5,6 +5,17 @@ const databaseNameSchema = z.string().trim().min(1);
 const allowedColumnsSchema = z.record(z.string(), z.array(z.string())).optional();
 
 const allowedColumnsByViewSchema = z.record(z.string(), z.array(z.string())).optional();
+const allowedFilterColumnsByViewSchema = z.record(z.string(), z.array(z.string())).optional();
+const filterValueRulesByViewSchema = z.record(
+  z.string(),
+  z.object({
+    filterColumns: z.array(z.string()).default([]),
+    filterValues: z.array(z.union([
+      z.string(),
+      z.array(z.string()),
+    ])).default([]),
+  }),
+).optional();
 const dataRangeSchema = z
   .string()
   .trim()
@@ -26,6 +37,7 @@ export const dataQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(10).max(500).default(50),
   search: z.string().optional(),
+  columnFilters: z.string().optional(),
   dsn: z.string().optional(),
   marka: z.string().optional(),
   product: z.string().optional(),
@@ -63,6 +75,8 @@ export const createUserSchema = z.object({
   }).optional(),
   allowedColumns: allowedColumnsSchema,
   allowedColumnsByView: allowedColumnsByViewSchema,
+  allowedFilterColumnsByView: allowedFilterColumnsByViewSchema,
+  filterValueRulesByView: filterValueRulesByViewSchema,
 });
 
 export const assignViewSchema = z.object({
@@ -86,6 +100,8 @@ export const assignViewSchema = z.object({
   }).optional(),
   allowedColumns: allowedColumnsSchema,
   allowedColumnsByView: allowedColumnsByViewSchema,
+  allowedFilterColumnsByView: allowedFilterColumnsByViewSchema,
+  filterValueRulesByView: filterValueRulesByViewSchema,
 });
 
 export const updateUserSchema = z.object({
@@ -108,6 +124,8 @@ export const updateUserSchema = z.object({
   }).optional(),
   allowedColumns: allowedColumnsSchema,
   allowedColumnsByView: allowedColumnsByViewSchema,
+  allowedFilterColumnsByView: allowedFilterColumnsByViewSchema,
+  filterValueRulesByView: filterValueRulesByViewSchema,
 });
 
 export const dashboardQuerySchema = z.object({
@@ -167,6 +185,12 @@ export const adminColumnsQuerySchema = z.object({
   view: z.string().min(1),
 });
 
+export const adminFilterValuesQuerySchema = z.object({
+  database: databaseNameSchema,
+  view: z.string().min(1),
+  column: z.string().min(1),
+});
+
 export const createDatabaseSchema = z.object({
   name: databaseNameSchema,
   displayName: z.string().optional(),
@@ -197,14 +221,18 @@ export const detectColumnsQuerySchema = z.object({
 
 const filterRuleSchema = z.object({
   column: z.string().min(1),
-  operator: z.enum(['=', 'contains', '>', '<']).default('='),
-  value: z.string().min(1),
+  operator: z.enum(['=', 'contains', '>', '<', 'in']).default('='),
+  value: z.union([
+    z.string().min(1),
+    z.array(z.string().min(1)).min(1),
+  ]),
 });
 
 export const createViewDefinitionSchema = z.object({
   viewName: z.string().min(1),
   database: databaseNameSchema,
   selectedColumns: z.array(z.string().min(1)).min(1),
+  filterableColumns: z.array(z.string().min(1)).optional(),
   filterRules: z.array(filterRuleSchema).optional(),
   sort: z.object({
     column: z.string().optional(),
@@ -216,6 +244,7 @@ export const createViewDefinitionSchema = z.object({
 export const updateViewDefinitionSchema = z.object({
   viewName: z.string().min(1).optional(),
   selectedColumns: z.array(z.string().min(1)).min(1).optional(),
+  filterableColumns: z.array(z.string().min(1)).optional(),
   filterRules: z.array(filterRuleSchema).optional(),
   sort: z.object({
     column: z.string().optional(),

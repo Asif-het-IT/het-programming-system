@@ -239,3 +239,113 @@ Open risk notes:
 
 - Full authenticated visual QA across all target breakpoints should be completed in a dedicated UI pass.
 - Local machine `server/.env` may contain live-like values and must remain untracked and rotation-managed.
+
+## 8) Release Candidate Handoff Note (Approved)
+
+Release position:
+
+enterprise incident management and analytics platform ready for deployment
+
+### 8.1 Mandatory Deployment Checklist
+
+Environment:
+
+- [ ] `.env` production variables configured
+- [ ] Telegram, Email, and Push channels verified
+- [ ] API base URLs updated to production domain
+
+Backend:
+
+- [ ] `npm install`
+- [ ] `npm run build`
+- [ ] Server started via PM2/systemd/node service
+- [ ] Health endpoint check passed: `/api/admin/monitoring/health` returns 200
+
+Frontend:
+
+- [ ] Production build deployed
+- [ ] Static hosting or CDN configured
+- [ ] Routing verified for `/admin/incidents`
+
+Database and storage:
+
+- [ ] `alerts.json` baseline verified clean
+- [ ] Storage file permissions verified
+- [ ] Backup snapshot created before go-live
+
+### 8.2 Critical Rollback Checklist
+
+Code rollback:
+
+- [ ] Previous stable tag available (example: v3.x)
+- [ ] `git checkout <previous-tag>` tested and ready
+
+Config rollback:
+
+- [ ] Previous `.env` backup stored securely
+- [ ] API endpoint mapping revert-ready
+
+Data safety rollback:
+
+- [ ] Backup verified for `alerts.json`
+- [ ] Backup verified for `users-db.json`
+- [ ] Backup verified for registry/state files
+
+Trigger conditions for rollback:
+
+- [ ] API errors above threshold
+- [ ] Alert pipeline not triggering or not delivering
+- [ ] UI crash, severe rendering failure, or blank screen
+
+### 8.3 First 24 Hours Post-Release Monitoring
+
+System health:
+
+- [ ] API uptime stable with no sustained 5xx
+- [ ] Response time remains within SLO
+
+Alert pipeline:
+
+- [ ] Test alert delivered across configured channels
+- [ ] No duplicate alert storm detected
+- [ ] Escalation logic working as expected
+
+Incident flow:
+
+- [ ] Incident creation verified
+- [ ] Incident grouping verified
+- [ ] Bulk actions verified
+- [ ] Re-open flow verified
+
+Analytics dashboard:
+
+- [ ] KPI cards updating
+- [ ] Trend section visible and updating
+- [ ] No empty/blank regressions in normal data conditions
+
+Critical watchpoints:
+
+- [ ] Alert volume spike behavior
+- [ ] External provider delays (Telegram/Email)
+- [ ] Memory profile under larger datasets
+- [ ] Retry queue growth trend
+
+### 8.4 Final Go-Live Confirmation
+
+After deployment and first validation pass, record:
+
+production deployment completed and system live
+
+### 8.5 Platform Capability Snapshot
+
+- Server-side filtering: complete
+- Bulk lifecycle actions: complete
+- Re-open incident flow: complete
+- Incident analytics dashboard: complete
+- SLO and escalation intelligence: complete
+- Multi-channel alerting: complete
+- Audit-verified monitoring: complete
+
+Operational loop now supported end-to-end:
+
+Filter -> Select -> Act -> Re-open -> Analyze

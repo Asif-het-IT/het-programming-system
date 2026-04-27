@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-04-27T21:50:03.07Z",
+  "channels": [
+    {
+      "channel": "adminPanel",
+      "totalAttempts": 4,
+      "successfulDeliveries": 4,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "100%",
+      "status": "healthy"
+    },
+    {
+      "channel": "console",
+      "totalAttempts": 4,
+      "successfulDeliveries": 0,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "0%",
+      "status": "degraded"
+    },
+    {
+      "channel": "telegram",
+      "totalAttempts": 0,
+      "successfulDeliveries": 0,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "0%",
+      "status": "inactive"
+    },
+    {
+      "channel": "email",
+      "totalAttempts": 0,
+      "successfulDeliveries": 0,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "0%",
+      "status": "inactive"
+    },
+    {
+      "channel": "push",
+      "totalAttempts": 4,
+      "successfulDeliveries": 0,
+      "failedDeliveries": 0,
+      "skipped": 4,
+      "successRate": "0%",
+      "status": "degraded"
+    },
+    {
+      "channel": "routingLogic",
+      "totalAttempts": 4,
+      "successfulDeliveries": 0,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "0%",
+      "status": "degraded"
+    },
+    {
+      "channel": "escalation",
+      "totalAttempts": 4,
+      "successfulDeliveries": 4,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "100%",
+      "status": "healthy"
+    },
+    {
+      "channel": "escalationDelivery",
+      "totalAttempts": 4,
+      "successfulDeliveries": 0,
+      "failedDeliveries": 0,
+      "skipped": 0,
+      "successRate": "0%",
+      "status": "degraded"
+    }
+  ],
+  "overallHealth": "degraded"
+}

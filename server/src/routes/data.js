@@ -26,6 +26,7 @@ import { getQualifiedViewName, getViewConfigFromSource, isViewNameMatch } from '
 import { alignRecordsToView } from '../services/viewProjectionService.js';
 import { getDatabaseByName, listDatabases, listViews, getViewByName } from '../data/databaseRegistry.js';
 import { applyFilterRules, applySearch, applySort, paginateRows, projectColumns } from '../services/dynamicViewEngine.js';
+import { getMonitoringAlertSettings, reportDataIsolationMismatch } from '../services/alertService.js';
 
 const router = Router();
 
@@ -124,6 +125,46 @@ function normalizeColumnName(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function parseDynamicColumnFilters(rawFilters, allowedColumns) {
+  const badRequest = (message) => {
+    const error = new Error(message);
+    error.status = 400;
+    return error;
+  };
+
+  const text = String(rawFilters || '').trim();
+  if (!text) return [];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw badRequest('Invalid columnFilters payload');
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw badRequest('columnFilters must be a key/value object');
+  }
+
+  const allowedSet = new Set((allowedColumns || []).map((col) => normalizeColumnName(col)).filter(Boolean));
+  const rules = [];
+
+  for (const [column, value] of Object.entries(parsed)) {
+    const columnName = String(column || '').trim();
+    const normalized = normalizeColumnName(columnName);
+    if (!columnName || !normalized) continue;
+    if (!allowedSet.has(normalized)) {
+      throw badRequest(`Column filter not allowed: ${columnName}`);
+    }
+
+    const filterValue = String(value == null ? '' : value).trim();
+    if (!filterValue) continue;
+    rules.push({ column: columnName, operator: 'contains', value: filterValue });
+  }
+
+  return rules;
+}
+
 function resolveColumnAccess(user, database, view) {
   const normalizedView = String(view || '').trim();
   const normalizedDatabase = String(database || '').trim().toUpperCase();
@@ -163,16 +204,158 @@ function resolveColumnAccess(user, database, view) {
   return { configured: false, columns: [] };
 }
 
-function applyColumnAccess(records, selectedHeaders, access) {
-  if (!access.configured) {
+function resolveFilterAccess(user, database, view) {
+  const normalizedView = String(view || '').trim();
+  const normalizedDatabase = String(database || '').trim().toUpperCase();
+  const scopedViewKey = normalizedView ? `${normalizedDatabase}::${normalizedView}` : '';
+  const allowedByViewMap = user?.allowedFilterColumnsByView && typeof user.allowedFilterColumnsByView === 'object'
+    ? user.allowedFilterColumnsByView
+    : {};
+
+  let allowedByView = allowedByViewMap[scopedViewKey] || allowedByViewMap[normalizedView];
+  if (!Array.isArray(allowedByView) && normalizedView) {
+    const matched = Object.entries(allowedByViewMap).find(([key]) => {
+      const scoped = parseScopedViewToken(key);
+      if (scoped) {
+        if (scoped.database !== normalizedDatabase) return false;
+        return scoped.view === normalizedView || isViewNameMatch(scoped.view, normalizedView);
+      }
+
+      return isViewNameMatch(key, normalizedView);
+    });
+    if (matched) {
+      allowedByView = matched[1];
+    }
+  }
+
+  if (Array.isArray(allowedByView)) {
+    return { configured: true, columns: allowedByView };
+  }
+
+  return { configured: false, columns: [] };
+}
+
+function normalizeCellValue(value) {
+  return String(value == null ? '' : value).trim().toLowerCase();
+}
+
+function toFilterPairs(ruleSet) {
+  if (!ruleSet || typeof ruleSet !== 'object') return [];
+  const cols = Array.isArray(ruleSet.filterColumns) ? ruleSet.filterColumns : [];
+  const vals = Array.isArray(ruleSet.filterValues) ? ruleSet.filterValues : [];
+  const pairs = [];
+
+  for (let i = 0; i < cols.length; i += 1) {
+    const column = String(cols[i] || '').trim();
+    if (!column) continue;
+
+    const raw = vals[i];
+    const values = Array.isArray(raw) ? raw : [raw];
+    for (const valueItem of values) {
+      const value = String(valueItem ?? '').trim();
+      if (!value) continue;
+      pairs.push({ column, value });
+    }
+  }
+
+  return pairs;
+}
+
+function groupFilterPairs(pairs) {
+  const byColumn = new Map();
+  for (const pair of pairs || []) {
+    const column = String(pair?.column || '').trim();
+    const value = String(pair?.value || '').trim();
+    if (!column || !value) continue;
+
+    if (!byColumn.has(column)) {
+      byColumn.set(column, []);
+    }
+
+    const list = byColumn.get(column);
+    const seen = list.some((item) => normalizeCellValue(item) === normalizeCellValue(value));
+    if (!seen) {
+      list.push(value);
+    }
+  }
+
+  return Array.from(byColumn.entries()).map(([column, values]) => ({ column, values }));
+}
+
+function resolveFilterValueRules(user, database, view) {
+  const normalizedView = String(view || '').trim();
+  const normalizedDatabase = String(database || '').trim().toUpperCase();
+  const scopedViewKey = normalizedView ? `${normalizedDatabase}::${normalizedView}` : '';
+  const rulesByView = user?.filterValueRulesByView && typeof user.filterValueRulesByView === 'object'
+    ? user.filterValueRulesByView
+    : {};
+
+  let matchedKey = '';
+  let ruleSet = rulesByView[scopedViewKey] || rulesByView[normalizedView];
+  if (!ruleSet && normalizedView) {
+    const matched = Object.entries(rulesByView).find(([key]) => {
+      const scoped = parseScopedViewToken(key);
+      if (scoped) {
+        if (scoped.database !== normalizedDatabase) return false;
+        return scoped.view === normalizedView || isViewNameMatch(scoped.view, normalizedView);
+      }
+
+      return isViewNameMatch(key, normalizedView);
+    });
+    if (matched) {
+      matchedKey = matched[0];
+      ruleSet = matched[1];
+    }
+  }
+
+  const pairs = toFilterPairs(ruleSet);
+  const groupedRules = groupFilterPairs(pairs);
+  return {
+    configured: groupedRules.length > 0,
+    source: matchedKey || scopedViewKey || normalizedView,
+    pairs,
+    groupedRules,
+  };
+}
+
+function applyUserFilterValueIsolation(rows, rules) {
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  if (!rules?.configured || !Array.isArray(rules.groupedRules) || rules.groupedRules.length === 0) {
     return {
-      selectedHeaders,
-      records,
+      records: sourceRows,
+      beforeCount: sourceRows.length,
+      afterCount: sourceRows.length,
     };
   }
 
+  const normalizedRules = rules.groupedRules.map(({ column, values }) => ({
+    column,
+    values: new Set((values || []).map((value) => normalizeCellValue(value)).filter(Boolean)),
+  }));
+
+  const filtered = sourceRows.filter((row) => {
+    const item = row && typeof row === 'object' ? row : {};
+    return normalizedRules.every(({ column, values }) => values.has(normalizeCellValue(item[column])));
+  });
+
+  return {
+    records: filtered,
+    beforeCount: sourceRows.length,
+    afterCount: filtered.length,
+  };
+}
+
+function getAllowedHeaders(selectedHeaders, access) {
+  if (!access.configured) {
+    return selectedHeaders || [];
+  }
+
   const allowed = new Set((access.columns || []).map((col) => normalizeColumnName(col)).filter(Boolean));
-  const filteredHeaders = (selectedHeaders || []).filter((header) => allowed.has(normalizeColumnName(header)));
+  return (selectedHeaders || []).filter((header) => allowed.has(normalizeColumnName(header)));
+}
+
+function applyColumnAccess(records, selectedHeaders, access) {
+  const filteredHeaders = getAllowedHeaders(selectedHeaders, access);
 
   const projected = (records || []).map((row) => {
     const out = {};
@@ -185,6 +368,70 @@ function applyColumnAccess(records, selectedHeaders, access) {
   return {
     selectedHeaders: filteredHeaders,
     records: projected,
+  };
+}
+
+function evaluateIsolationMismatches(rows, rules, visibleColumns) {
+  const items = Array.isArray(rows) ? rows : [];
+  const groupedRules = Array.isArray(rules) ? rules : [];
+  const expectedColumns = new Set((visibleColumns || []).map((column) => normalizeColumnName(column)).filter(Boolean));
+
+  let mismatchRows = 0;
+  let mismatchColumns = 0;
+
+  for (const row of items) {
+    const record = row && typeof row === 'object' ? row : {};
+
+    if (groupedRules.length > 0) {
+      const rowMatches = groupedRules.every((rule) => {
+        const col = String(rule?.column || '').trim();
+        const allowed = Array.isArray(rule?.values) ? rule.values : [];
+        const normalizedAllowed = new Set(allowed.map((value) => normalizeCellValue(value)).filter(Boolean));
+        return normalizedAllowed.has(normalizeCellValue(record[col]));
+      });
+      if (!rowMatches) mismatchRows += 1;
+    }
+
+    if (expectedColumns.size > 0) {
+      const extra = Object.keys(record).filter((column) => !expectedColumns.has(normalizeColumnName(column)));
+      mismatchColumns += extra.length;
+    }
+  }
+
+  return { mismatchRows, mismatchColumns };
+}
+
+async function validateIsolationAndAlert({
+  database,
+  view,
+  user,
+  rows,
+  rules,
+  visibleColumns,
+  context,
+  blockOnMismatch = false,
+}) {
+  const result = evaluateIsolationMismatches(rows, rules, visibleColumns);
+  const hasMismatch = result.mismatchRows > 0 || result.mismatchColumns > 0;
+
+  if (hasMismatch) {
+    await reportDataIsolationMismatch({
+      database,
+      view,
+      user,
+      mismatchRows: result.mismatchRows,
+      mismatchColumns: result.mismatchColumns,
+      context,
+      details: {
+        visibleColumns,
+      },
+    });
+  }
+
+  return {
+    ...result,
+    hasMismatch,
+    blocked: hasMismatch && blockOnMismatch,
   };
 }
 
@@ -279,18 +526,38 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
 
       const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
       const fetched = await fetchAllRowsForCustomDatabase(dbConfig, req.user.email);
+      const filterValueRules = resolveFilterValueRules(req.user, query.database, query.view);
+      const isolatedRows = applyUserFilterValueIsolation(fetched.rows, filterValueRules);
 
-      let rows = fetched.rows;
-      rows = applyFilterRules(rows, dynamicView.filterRules || []);
-      rows = applySearch(rows, query.search, dynamicView.selectedColumns);
+      const projected = projectColumns(isolatedRows.records, dynamicView.selectedColumns);
+      let rows = projected.rows;
+      const filterAccess = resolveFilterAccess(req.user, query.database, query.view);
+      const visibleHeaders = getAllowedHeaders(projected.headers, columnAccess);
+      let allowedFilterColumns = (dynamicView.filterableColumns || [])
+        .filter((column) => visibleHeaders.some((header) => normalizeColumnName(header) === normalizeColumnName(column)));
+      if (filterAccess.configured) {
+        const allowedFilterSet = new Set((filterAccess.columns || []).map((col) => normalizeColumnName(col)).filter(Boolean));
+        allowedFilterColumns = allowedFilterColumns.filter((column) => allowedFilterSet.has(normalizeColumnName(column)));
+      }
+      const runtimeFilters = parseDynamicColumnFilters(query.columnFilters, allowedFilterColumns);
+      rows = applyFilterRules(rows, [...(dynamicView.filterRules || []), ...runtimeFilters]);
+      rows = applySearch(rows, query.search, projected.headers);
 
       const sortColumn = query.sortBy || dynamicView.sort?.column;
       const sortDirection = query.sortOrder || dynamicView.sort?.direction || 'asc';
       rows = applySort(rows, sortColumn, sortDirection);
 
-      const projected = projectColumns(rows, dynamicView.selectedColumns);
-      const restricted = applyColumnAccess(projected.rows, projected.headers, columnAccess);
+      const restricted = applyColumnAccess(rows, projected.headers, columnAccess);
       const paged = paginateRows(restricted.records, query.page, query.pageSize);
+      await validateIsolationAndAlert({
+        database: query.database,
+        view: query.view,
+        user: req.user?.email,
+        rows: paged.records,
+        rules: filterValueRules.groupedRules,
+        visibleColumns: restricted.selectedHeaders,
+        context: 'data-read-dynamic',
+      });
 
       return res.json({
         data: {
@@ -303,6 +570,7 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
           source: 'dynamic-builder',
           view: dynamicView.viewName,
           selectedHeaders: restricted.selectedHeaders,
+          filterableColumns: allowedFilterColumns,
           filterRules: dynamicView.filterRules || [],
           rowCount: paged.records.length,
         },
@@ -310,10 +578,19 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
           configured: columnAccess.configured,
           allowedColumns: columnAccess.columns,
           visibleColumns: restricted.selectedHeaders,
+          filterColumnsConfigured: filterAccess.configured,
+          allowedFilterColumns: filterAccess.columns,
+          visibleFilterColumns: allowedFilterColumns,
         },
         source: {
           fetchedRows: fetched.rows.length,
           fetchedTotal: fetched.total,
+        },
+        rowIsolation: {
+          configured: filterValueRules.configured,
+          rules: filterValueRules.groupedRules,
+          beforeCount: isolatedRows.beforeCount,
+          afterCount: isolatedRows.afterCount,
         },
       });
     }
@@ -364,8 +641,10 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
       ? { ...viewConfig, filterColumns: [], filterValues: [] }
       : viewConfig;
     const aligned = alignRecordsToView(envelope.records, alignConfig);
+    const filterValueRules = resolveFilterValueRules(req.user, query.database, query.view);
+    const isolatedRows = applyUserFilterValueIsolation(aligned.records, filterValueRules);
     const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
-    const restricted = applyColumnAccess(aligned.records, aligned.selectedHeaders, columnAccess);
+    const restricted = applyColumnAccess(isolatedRows.records, aligned.selectedHeaders, columnAccess);
     envelope.set(restricted.records);
 
     data.viewAlignment = {
@@ -382,6 +661,23 @@ router.get('/data', requireAuth, validate(dataQuerySchema, 'query'), async (req,
       allowedColumns: columnAccess.columns,
       visibleColumns: restricted.selectedHeaders,
     };
+
+    data.rowIsolation = {
+      configured: filterValueRules.configured,
+      rules: filterValueRules.groupedRules,
+      beforeCount: isolatedRows.beforeCount,
+      afterCount: isolatedRows.afterCount,
+    };
+
+    await validateIsolationAndAlert({
+      database: query.database,
+      view: query.view,
+      user: req.user?.email,
+      rows: restricted.records,
+      rules: filterValueRules.groupedRules,
+      visibleColumns: restricted.selectedHeaders,
+      context: 'data-read-legacy',
+    });
 
     res.json(data);
   } catch (error) {
@@ -631,6 +927,7 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
 
     const isLegacy = isLegacyDatabase(query.database);
     const columnAccess = resolveColumnAccess(req.user, query.database, query.view);
+    const alertSettings = getMonitoringAlertSettings();
 
     if (!isLegacy) {
       const dynamicView = getDynamicViewDefinition(query.database, query.view);
@@ -639,10 +936,26 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
       }
 
       const fetched = await fetchAllRowsForCustomDatabase(dbConfig, req.user.email);
-      let rows = applyFilterRules(fetched.rows, dynamicView.filterRules || []);
+      const filterValueRules = resolveFilterValueRules(req.user, query.database, query.view);
+      const isolatedRows = applyUserFilterValueIsolation(fetched.rows, filterValueRules);
+      const projected = projectColumns(isolatedRows.records, dynamicView.selectedColumns);
+      let rows = applyFilterRules(projected.rows, dynamicView.filterRules || []);
       rows = applySort(rows, dynamicView.sort?.column, dynamicView.sort?.direction || 'asc');
-      const projected = projectColumns(rows, dynamicView.selectedColumns);
-      const restricted = applyColumnAccess(projected.rows, projected.headers, columnAccess);
+      const restricted = applyColumnAccess(rows, projected.headers, columnAccess);
+      const validation = await validateIsolationAndAlert({
+        database: query.database,
+        view: query.view,
+        user: req.user?.email,
+        rows: restricted.records,
+        rules: filterValueRules.groupedRules,
+        visibleColumns: restricted.selectedHeaders,
+        context: 'export-dynamic',
+        blockOnMismatch: alertSettings.strictExportBlockOnIsolationMismatch === true,
+      });
+
+      if (validation.blocked) {
+        return next({ status: 403, message: 'Export blocked due to data isolation mismatch' });
+      }
 
       return res.json({
         format: query.format,
@@ -658,6 +971,15 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
           configured: columnAccess.configured,
           allowedColumns: columnAccess.columns,
           visibleColumns: restricted.selectedHeaders,
+          filterColumnsConfigured: false,
+          allowedFilterColumns: [],
+          visibleFilterColumns: [],
+        },
+        rowIsolation: {
+          configured: filterValueRules.configured,
+          rules: filterValueRules.groupedRules,
+          beforeCount: isolatedRows.beforeCount,
+          afterCount: isolatedRows.afterCount,
         },
       });
     }
@@ -667,8 +989,14 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
       requester: req.user.email,
     });
 
+    const filterValueRules = resolveFilterValueRules(req.user, query.database, query.view);
+
     if (columnAccess.configured && exported?.downloadUrl) {
       return next({ status: 403, message: 'Restricted export download is not allowed for current column access policy' });
+    }
+
+    if (filterValueRules.configured && exported?.downloadUrl) {
+      return next({ status: 403, message: 'Restricted export download is not allowed for current row isolation policy' });
     }
 
     const envelope = extractRecordsEnvelope(exported);
@@ -679,7 +1007,8 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
         : viewConfig;
 
       const aligned = alignRecordsToView(envelope.records, alignConfig);
-      const restricted = applyColumnAccess(aligned.records, aligned.selectedHeaders, columnAccess);
+      const isolatedRows = applyUserFilterValueIsolation(aligned.records, filterValueRules);
+      const restricted = applyColumnAccess(isolatedRows.records, aligned.selectedHeaders, columnAccess);
       envelope.set(restricted.records);
 
       exported.columnAccess = {
@@ -687,6 +1016,28 @@ router.get('/export', requireAuth, validate(exportQuerySchema, 'query'), async (
         allowedColumns: columnAccess.columns,
         visibleColumns: restricted.selectedHeaders,
       };
+
+      exported.rowIsolation = {
+        configured: filterValueRules.configured,
+        rules: filterValueRules.groupedRules,
+        beforeCount: isolatedRows.beforeCount,
+        afterCount: isolatedRows.afterCount,
+      };
+
+      const validation = await validateIsolationAndAlert({
+        database: query.database,
+        view: query.view,
+        user: req.user?.email,
+        rows: restricted.records,
+        rules: filterValueRules.groupedRules,
+        visibleColumns: restricted.selectedHeaders,
+        context: 'export-legacy',
+        blockOnMismatch: alertSettings.strictExportBlockOnIsolationMismatch === true,
+      });
+
+      if (validation.blocked) {
+        return next({ status: 403, message: 'Export blocked due to data isolation mismatch' });
+      }
     }
 
     res.json(exported);
@@ -752,12 +1103,16 @@ router.get('/my-views', requireAuth, async (req, res, next) => {
             sheetName: String(config.sheetName || ''),
           });
 
+          const columnAccess = resolveColumnAccess(req.user, database, qualifiedViewName);
+          const visibleColumns = getAllowedHeaders(Array.isArray(config.columnsList) ? config.columnsList : [], columnAccess);
           return {
             database,
             viewName: qualifiedViewName,
             sheetName: String(config.sheetName || ''),
-            columnsList: Array.isArray(config.columnsList) ? config.columnsList : [],
-            columnAccess: resolveColumnAccess(req.user, database, qualifiedViewName),
+            columnsList: visibleColumns,
+            filterableColumns: [],
+            source: 'legacy',
+            columnAccess,
           };
         });
     });
@@ -770,13 +1125,27 @@ router.get('/my-views', requireAuth, async (req, res, next) => {
         if (assignedAllViews) return true;
         return hasAssignedViewForScope(req.user.views, view.database, view.viewName);
       })
-      .map((view) => ({
-        database: view.database,
-        viewName: view.viewName,
-        sheetName: '',
-        columnsList: view.selectedColumns || [],
-        columnAccess: resolveColumnAccess(req.user, view.database, view.viewName),
-      }));
+      .map((view) => {
+        const columnAccess = resolveColumnAccess(req.user, view.database, view.viewName);
+        const filterAccess = resolveFilterAccess(req.user, view.database, view.viewName);
+        const visibleColumns = getAllowedHeaders(view.selectedColumns || [], columnAccess);
+        let filterableColumns = (view.filterableColumns || [])
+          .filter((column) => visibleColumns.some((header) => normalizeColumnName(header) === normalizeColumnName(column)));
+        if (filterAccess.configured) {
+          const allowedFilterSet = new Set((filterAccess.columns || []).map((col) => normalizeColumnName(col)).filter(Boolean));
+          filterableColumns = filterableColumns.filter((column) => allowedFilterSet.has(normalizeColumnName(column)));
+        }
+
+        return {
+          database: view.database,
+          viewName: view.viewName,
+          sheetName: '',
+          columnsList: visibleColumns,
+          filterableColumns,
+          source: 'dynamic',
+          columnAccess,
+        };
+      });
 
     const views = [...legacyViews, ...customViews];
 

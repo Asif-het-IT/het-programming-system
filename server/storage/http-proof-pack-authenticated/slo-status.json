@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-04-27T21:50:03.066Z",
+  "settings": {
+    "evaluationWindowMinutes": 5,
+    "apiResponseWarningMs": 3000,
+    "apiResponseCriticalMs": 6000,
+    "syncDelayWarningMs": 10000,
+    "syncDelayCriticalMs": 20000,
+    "failureRateWarningPct": 10,
+    "failureRateCriticalPct": 25,
+    "failureWarningCount": 1,
+    "failureCriticalCount": 3,
+    "escalationUnresolvedMinutes": 10,
+    "escalationRepeatMinutes": 10
+  },
+  "scopeCount": 0,
+  "scopes": []
+}

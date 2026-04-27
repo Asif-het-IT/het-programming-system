@@ -10,9 +10,49 @@ import HetLogo from '@/components/HetLogo';
 import Login from './pages/Login';  // eager — entry point, must not lazy-load
 
 const ROUTER_FUTURE = { v7_startTransition: true, v7_relativeSplatPath: true };
-const UserDashboard = lazy(() => import('./pages/UserDashboard'));
-const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-const AdminAbout = lazy(() => import('./pages/AdminAbout'));
+
+function lazyWithRetry(importer, key) {
+  return lazy(async () => {
+    const storageKey = `lazy-reload:${key}`;
+    const browserWindow = globalThis.window;
+    try {
+      const module = await importer();
+      if (browserWindow) {
+        globalThis.sessionStorage.removeItem(storageKey);
+      }
+      return module;
+    } catch (error) {
+      const message = String(error?.message || '');
+      const transientChunkFailure = message.includes('Failed to fetch dynamically imported module')
+        || message.includes('Importing a module script failed');
+
+      if (transientChunkFailure && browserWindow) {
+        const hasReloaded = globalThis.sessionStorage.getItem(storageKey) === '1';
+        if (!hasReloaded) {
+          globalThis.sessionStorage.setItem(storageKey, '1');
+          globalThis.location.reload();
+          return new Promise(() => {});
+        }
+      }
+
+      throw error;
+    }
+  });
+}
+
+const UserDashboard = lazyWithRetry(() => import('./pages/UserDashboard'), 'user-dashboard');
+const AdminPanel = lazyWithRetry(() => import('./pages/AdminPanel'), 'admin-panel');
+const AdminAbout = lazyWithRetry(() => import('./pages/AdminAbout'), 'admin-about');
+const AdminLayout = lazyWithRetry(() => import('./components/AdminLayout'), 'admin-layout');
+const AdminOverview = lazyWithRetry(() => import('./pages/admin/AdminOverview'), 'admin-overview');
+const AdminDatabases = lazyWithRetry(() => import('./pages/admin/AdminDatabases'), 'admin-databases');
+const AdminViews = lazyWithRetry(() => import('./pages/admin/AdminViews'), 'admin-views');
+const AdminUsers = lazyWithRetry(() => import('./pages/admin/AdminUsers'), 'admin-users');
+const AdminMonitoring = lazyWithRetry(() => import('./pages/admin/AdminMonitoring'), 'admin-monitoring');
+const AdminAlerts = lazyWithRetry(() => import('./pages/admin/AdminAlerts'), 'admin-alerts');
+const AdminIncidents = lazyWithRetry(() => import('./pages/AdminIncidents'), 'admin-incidents');
+const AdminNotifications = lazyWithRetry(() => import('./pages/admin/AdminNotifications'), 'admin-notifications');
+const AdminAuditLogs = lazyWithRetry(() => import('./pages/admin/AdminAuditLogs'), 'admin-audit-logs');
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, isLoading } = useAuth();
@@ -76,8 +116,22 @@ function AppContent() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
-        <Route path="/admin/about" element={<ProtectedRoute adminOnly><AdminAbout /></ProtectedRoute>} />
+        {/* Legacy admin panel — kept for backward compat */}
+        <Route path="/admin/legacy" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
+        {/* New modular admin */}
+        <Route path="/admin" element={<ProtectedRoute adminOnly><AdminLayout /></ProtectedRoute>}>
+          <Route index element={<Navigate to="/admin/overview" replace />} />
+          <Route path="overview" element={<AdminOverview />} />
+          <Route path="databases" element={<AdminDatabases />} />
+          <Route path="views" element={<AdminViews />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="monitoring" element={<AdminMonitoring />} />
+          <Route path="alerts" element={<AdminAlerts />} />
+          <Route path="incidents" element={<AdminIncidents />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="audit-logs" element={<AdminAuditLogs />} />
+          <Route path="about" element={<AdminAbout />} />
+        </Route>
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center bg-background">
             <div className="text-center">

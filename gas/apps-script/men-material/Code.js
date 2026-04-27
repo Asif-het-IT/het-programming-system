@@ -729,6 +729,9 @@ function BRIDGE_records_(e) {
       status: BRIDGE_text_(p.status),
       search: BRIDGE_text_(p.search)
     },
+    // Include raw header row so upstream services can detect true last non-empty column
+    // even when header labels are duplicated.
+    headers: parsed.headers,
     count: filtered.rows.length,
     records: filtered.rows,
     items: filtered.rows

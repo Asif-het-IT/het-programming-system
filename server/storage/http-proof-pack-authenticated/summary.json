@@ -1,0 +1,27 @@
+[
+  {
+    "endpoint": "/api/admin/monitoring/health",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "endpoint": "/api/admin/monitoring/dashboard",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "endpoint": "/api/admin/monitoring/slo-status",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "endpoint": "/api/admin/monitoring/channels",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "endpoint": "/api/admin/monitoring/retries",
+    "status": 200,
+    "ok": true
+  }
+]

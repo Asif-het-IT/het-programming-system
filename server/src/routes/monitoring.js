@@ -20,6 +20,16 @@ import { fetchDataFromGas, fetchDashboardFromGas, fetchViewConfigFromGas } from 
 import { writeAuditEvent } from '../data/auditLog.js';
 import { getQualifiedViewName, getViewConfigFromSource } from '../services/viewConfigService.js';
 import { listDatabases } from '../data/databaseRegistry.js';
+import {
+  getAlertStats,
+  getDeliveryMetrics,
+  getAlertFrequency,
+  getFailureTracking,
+  listAlerts,
+} from '../data/alertsStore.js';
+import { getRetryStatus } from '../services/channelRetryService.js';
+import { getRoutingConfiguration } from '../services/alertPriorityRouter.js';
+import { getSloRuntimeStatus, runIncidentEscalationSweep } from '../services/alertService.js';
 
 const router = Router();
 
@@ -302,6 +312,240 @@ router.delete('/logs', (req, res) => {
     details: {},
   });
   res.json({ cleared: true });
+});
+
+// ─── Alert System Dashboard Monitoring Routes ────────────────────────────────
+
+/**
+ * GET /api/admin/monitoring/dashboard
+ * Comprehensive dashboard overview with all key metrics
+ */
+router.get('/dashboard', async (req, res) => {
+  try {
+    await runIncidentEscalationSweep();
+    const stats = getAlertStats();
+    const delivery = getDeliveryMetrics();
+    const frequency = getAlertFrequency(24);
+    const failures = getFailureTracking();
+    const slo = getSloRuntimeStatus();
+
+    // Calculate derived metrics
+    const criticalityScore = Math.round(
+      (stats.criticalOpen / Math.max(1, stats.open)) * 100
+    );
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      alertSystem: {
+        totalAlerts: stats.total,
+        openAlerts: stats.open,
+        acknowledgedAlerts: stats.acknowledged,
+        resolvedAlerts: stats.resolved,
+        criticalOpen: stats.criticalOpen,
+        criticalityScore,
+      },
+      channels: {
+        delivery,
+        failureTracking: failures,
+        overallSuccessRate: Object.values(delivery).reduce((acc, ch) => acc + ch.successRate, 0) / Object.keys(delivery).length,
+      },
+      slo,
+      trends: {
+        frequency24h: frequency,
+      },
+      recentAlerts: listAlerts({ limit: 5 }),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/channels
+ * Detailed channel delivery metrics and success rates
+ */
+router.get('/channels', (req, res) => {
+  try {
+    const delivery = getDeliveryMetrics();
+
+    const channelStatus = Object.entries(delivery).map(([channel, stats]) => {
+      let status = 'degraded';
+      if (stats.attempts === 0) status = 'inactive';
+      else if (stats.successRate >= 95) status = 'healthy';
+
+      return {
+        channel,
+        totalAttempts: stats.attempts,
+        successfulDeliveries: stats.sent,
+        failedDeliveries: stats.failed,
+        skipped: stats.skipped,
+        successRate: `${stats.successRate}%`,
+        status,
+      };
+    });
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      channels: channelStatus,
+      overallHealth: channelStatus.every((ch) => ch.status !== 'degraded') ? 'healthy' : 'degraded',
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/frequency
+ * Alert frequency trends over time
+ */
+router.get('/frequency', (req, res) => {
+  try {
+    const hours = Math.min(Number(req.query.hours) || 24, 168); // Max 7 days
+    const frequency = getAlertFrequency(hours);
+
+    const timeSeries = Object.entries(frequency)
+      .map(([label, data]) => ({
+        time: label,
+        ...data,
+      }))
+      .sort((a, b) => {
+        const aHours = Number.parseInt(a.time, 10) || 0;
+        const bHours = Number.parseInt(b.time, 10) || 0;
+        return aHours - bHours;
+      });
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      hoursDisplayed: hours,
+      timeSeries,
+      totalAlertsInPeriod: timeSeries.reduce((sum, point) => sum + point.total, 0),
+      avgAlertsPerHour: (timeSeries.reduce((sum, point) => sum + point.total, 0) / Math.max(1, timeSeries.length)).toFixed(2),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/failures
+ * Track failures by channel, type, and database
+ */
+router.get('/failures', (req, res) => {
+  try {
+    const failures = getFailureTracking();
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      failureBreakdown: {
+        byChannel: Object.entries(failures.byChannel).map(([channel, data]) => ({
+          channel,
+          failureCount: data.count,
+          lastError: data.lastError,
+          recentExamples: data.examples,
+        })),
+        byType: failures.byType,
+        byDatabase: failures.byDatabase,
+      },
+      totalFailures: Object.values(failures.byChannel).reduce((sum, ch) => sum + ch.count, 0),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/retries
+ * View current retry queue status
+ */
+router.get('/retries', (req, res) => {
+  try {
+    const openAlerts = listAlerts({ status: 'open', limit: 1000 });
+
+    const retryInfo = [];
+    for (const alert of openAlerts) {
+      const retryStatus = getRetryStatus(alert.id);
+      if (retryStatus) {
+        retryInfo.push({
+          alertId: alert.id,
+          message: alert.message,
+          type: alert.type,
+          retries: retryStatus,
+        });
+      }
+    }
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      pendingRetries: retryInfo.length,
+      retries: retryInfo,
+      summary: `${retryInfo.length} alerts with pending retries`,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/routing-config
+ * Display the alert routing configuration
+ */
+router.get('/routing-config', (_req, res) => {
+  try {
+    const routing = getRoutingConfiguration();
+    res.json({
+      timestamp: new Date().toISOString(),
+      routing,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/health
+ * Quick health check for alert system
+ */
+router.get('/health', (_req, res) => {
+  try {
+    const stats = getAlertStats();
+    const delivery = getDeliveryMetrics();
+    const failures = getFailureTracking();
+
+    const totalFailures = Object.values(failures.byChannel).reduce((sum, ch) => sum + ch.count, 0);
+    const overallSuccessRate = Object.values(delivery).reduce((acc, ch) => acc + ch.successRate, 0) / Object.keys(delivery).length;
+
+    const isHealthy = overallSuccessRate >= 90 && stats.criticalOpen <= 10;
+
+    res.json({
+      status: isHealthy ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      metrics: {
+        successRate: `${overallSuccessRate.toFixed(2)}%`,
+        totalAlerts: stats.total,
+        openCritical: stats.criticalOpen,
+        totalFailures,
+        channelsOperational: Object.values(delivery).filter((ch) => ch.attempts > 0).length,
+      },
+      alerts: isHealthy ? [] : [
+        ...(overallSuccessRate < 90 ? [`Low success rate: ${overallSuccessRate.toFixed(2)}%`] : []),
+        ...(stats.criticalOpen > 10 ? [`High critical alert count: ${stats.criticalOpen}`] : []),
+      ],
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monitoring/slo-status
+ * Runtime SLO window state and thresholds
+ */
+router.get('/slo-status', (_req, res) => {
+  try {
+    res.json(getSloRuntimeStatus());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;

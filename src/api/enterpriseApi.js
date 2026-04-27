@@ -26,8 +26,11 @@ export async function getExportRequest(params) {
   return data;
 }
 
-export async function getUsersRequest() {
-  const { data } = await httpClient.get('/admin/users');
+export async function getUsersRequest(options = {}) {
+  const { data } = await httpClient.get('/admin/users', {
+    skipCache: options.skipCache,
+    cacheTtlMs: options.cacheTtlMs,
+  });
   return data;
 }
 
@@ -66,8 +69,11 @@ export async function getAuditLogRequest(limit = 100) {
   return data;
 }
 
-export async function getAdminViewsRequest() {
-  const { data } = await httpClient.get('/admin/views');
+export async function getAdminViewsRequest(options = {}) {
+  const { data } = await httpClient.get('/admin/views', {
+    skipCache: options.skipCache,
+    cacheTtlMs: options.cacheTtlMs,
+  });
   return data;
 }
 
@@ -76,8 +82,16 @@ export async function getAdminColumnsRequest(params) {
   return data;
 }
 
-export async function getAdminDatabasesRequest() {
-  const { data } = await httpClient.get('/admin/databases');
+export async function getAdminFilterValuesRequest(params) {
+  const { data } = await httpClient.get('/admin/filter-values', { params });
+  return data;
+}
+
+export async function getAdminDatabasesRequest(options = {}) {
+  const { data } = await httpClient.get('/admin/databases', {
+    skipCache: options.skipCache,
+    cacheTtlMs: options.cacheTtlMs,
+  });
   return data;
 }
 
@@ -101,9 +115,11 @@ export async function detectAdminDatabaseColumnsRequest(id) {
   return data;
 }
 
-export async function getViewDefinitionsRequest(database) {
+export async function getViewDefinitionsRequest(database, options = {}) {
   const { data } = await httpClient.get('/admin/view-definitions', {
     params: database ? { database } : {},
+    skipCache: options.skipCache,
+    cacheTtlMs: options.cacheTtlMs,
   });
   return data;
 }
@@ -150,10 +166,118 @@ export async function sendNotificationRequest(payload) {
   return data;
 }
 
+// ─── Alerts APIs ──────────────────────────────────────────────────────────────
+
+export async function getAdminAlertsRequest(params = {}) {
+  const { data } = await httpClient.get('/admin/alerts', { params });
+  return data;
+}
+
+export async function updateAdminAlertStatusRequest(id, status) {
+  const normalizedStatus = String(status || '').toLowerCase();
+
+  try {
+    const { data } = await httpClient.patch(`/admin/alerts/${encodeURIComponent(id)}`, {
+      status: normalizedStatus,
+    });
+    return data;
+  } catch (error) {
+    // Backward compatibility: existing deployments expose dedicated action routes.
+    if (normalizedStatus === 'acknowledged') {
+      return acknowledgeAdminAlertRequest(id);
+    }
+    if (normalizedStatus === 'resolved') {
+      return resolveAdminAlertRequest(id);
+    }
+    throw error;
+  }
+}
+
+export async function bulkUpdateAdminAlertStatusRequest(ids, status = 'open') {
+  const normalizedStatus = String(status || '').toLowerCase();
+  const { data } = await httpClient.post('/admin/alerts/bulk', {
+    ids,
+    status: normalizedStatus,
+  });
+  return data;
+}
+
+export async function acknowledgeAdminAlertRequest(id) {
+  const { data } = await httpClient.post(`/admin/alerts/${encodeURIComponent(id)}/acknowledge`);
+  return data;
+}
+
+export async function resolveAdminAlertRequest(id) {
+  const { data } = await httpClient.post(`/admin/alerts/${encodeURIComponent(id)}/resolve`);
+  return data;
+}
+
+export async function retryAdminAlertSyncRequest(id) {
+  const { data } = await httpClient.post(`/admin/alerts/${encodeURIComponent(id)}/retry-sync`);
+  return data;
+}
+
+export async function getAdminAlertSettingsRequest() {
+  const { data } = await httpClient.get('/admin/alert-settings');
+  return data;
+}
+
+export async function updateAdminAlertSettingsRequest(payload) {
+  const { data } = await httpClient.put('/admin/alert-settings', payload);
+  return data;
+}
+
+export async function sendAdminTestAlertRequest(payload) {
+  const { data } = await httpClient.post('/admin/alerts/test', payload);
+  return data;
+}
+
 // ─── Monitoring APIs ──────────────────────────────────────────────────────────
 
 export async function getMonitoringStatusRequest() {
   const { data } = await httpClient.get('/admin/monitoring/status');
+  return data;
+}
+
+export async function getMonitoringDashboardRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/dashboard');
+  return data;
+}
+
+export async function getMonitoringChannelsRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/channels');
+  return data;
+}
+
+export async function getMonitoringFrequencyRequest(hours = 24) {
+  const { data } = await httpClient.get('/admin/monitoring/frequency', {
+    params: { hours },
+  });
+  return data;
+}
+
+export async function getMonitoringFailuresRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/failures');
+  return data;
+}
+
+export async function getMonitoringRetriesRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/retries');
+  return data;
+}
+
+export async function getMonitoringRoutingConfigRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/routing-config');
+  return data;
+}
+
+export async function getMonitoringHealthRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/health');
+  return data;
+}
+
+export async function getMonitoringSloStatusRequest() {
+  const { data } = await httpClient.get('/admin/monitoring/slo-status');
   return data;
 }
 

@@ -1,0 +1,455 @@
+{
+  "timestamp": "2026-04-27T21:50:03.059Z",
+  "alertSystem": {
+    "totalAlerts": 4,
+    "openAlerts": 0,
+    "acknowledgedAlerts": 0,
+    "resolvedAlerts": 4,
+    "criticalOpen": 0,
+    "criticalityScore": 0
+  },
+  "channels": {
+    "delivery": {
+      "adminPanel": {
+        "attempts": 4,
+        "sent": 4,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 100
+      },
+      "console": {
+        "attempts": 4,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 0
+      },
+      "telegram": {
+        "attempts": 0,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 0
+      },
+      "email": {
+        "attempts": 0,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 0
+      },
+      "push": {
+        "attempts": 4,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 4,
+        "successRate": 0
+      },
+      "routingLogic": {
+        "attempts": 4,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 0
+      },
+      "escalation": {
+        "attempts": 4,
+        "sent": 4,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 100
+      },
+      "escalationDelivery": {
+        "attempts": 4,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "successRate": 0
+      }
+    },
+    "failureTracking": {
+      "byChannel": {},
+      "byType": {},
+      "byDatabase": {
+        "MEN_MATERIAL": 0
+      }
+    },
+    "overallSuccessRate": 25
+  },
+  "slo": {
+    "timestamp": "2026-04-27T21:50:03.059Z",
+    "settings": {
+      "evaluationWindowMinutes": 5,
+      "apiResponseWarningMs": 3000,
+      "apiResponseCriticalMs": 6000,
+      "syncDelayWarningMs": 10000,
+      "syncDelayCriticalMs": 20000,
+      "failureRateWarningPct": 10,
+      "failureRateCriticalPct": 25,
+      "failureWarningCount": 1,
+      "failureCriticalCount": 3,
+      "escalationUnresolvedMinutes": 10,
+      "escalationRepeatMinutes": 10
+    },
+    "scopeCount": 0,
+    "scopes": []
+  },
+  "trends": {
+    "frequency24h": {
+      "0h ago": {
+        "critical": 2,
+        "warning": 2,
+        "info": 0,
+        "total": 4
+      }
+    }
+  },
+  "recentAlerts": [
+    {
+      "id": "alert_1777325491550_d0f37d",
+      "alertId": "alert_1777325491550_d0f37d",
+      "type": "sync_failure",
+      "severity": "critical",
+      "sourceModule": "slo-breach-engine",
+      "status": "resolved",
+      "occurrences": 1,
+      "database": "MEN_MATERIAL",
+      "view": "Summary",
+      "user": null,
+      "message": "Sync failures breached threshold: 3 failures in 5m",
+      "details": {
+        "api": "records",
+        "layer": "proxy",
+        "error": "simulated failure 3",
+        "failures": 3,
+        "total": 4,
+        "failureRatePct": 75,
+        "thresholds": {
+          "warningCount": 1,
+          "criticalCount": 3
+        }
+      },
+      "signature": "sync_failure_threshold::men_material::proxy::critical::29622091",
+      "incidentKey": "1373902a1ee31fb13096",
+      "errorSignature": "records::proxy::slo-breach-engine::sync failures breached threshold: 3 failures in 5m",
+      "firstSeen": "2026-04-27T21:31:31.55Z",
+      "lastSeen": "2026-04-27T21:31:31.55Z",
+      "escalationLevel": 1,
+      "lastEscalatedAt": "2026-04-27T21:33:06.965Z",
+      "escalationReason": "unresolved_incident",
+      "escalationHistory": [
+        {
+          "level": 1,
+          "at": "2026-04-27T21:33:06.965Z",
+          "reason": "unresolved_incident",
+          "triggeredBy": "slo-escalation-engine"
+        }
+      ],
+      "createdAt": "2026-04-27T21:31:31.55Z",
+      "updatedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedAt": "2026-04-27T21:41:50.8072606Z",
+      "resolvedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedBy": "system-baseline-cleanup",
+      "resolvedBy": "system-baseline-cleanup",
+      "deliveryStatus": {
+        "adminPanel": "stored",
+        "console": {
+          "status": "logged"
+        },
+        "push": {
+          "status": "skipped",
+          "reason": "no_admin_subscriptions"
+        },
+        "routingLogic": "Severity [critical]: All channels - immediate escalation required → Type [sync_failure]: Data sync issues affect system integrity → Routed to: adminPanel, console, push",
+        "escalation": {
+          "level": 1,
+          "at": "2026-04-27T21:33:09.275Z",
+          "status": "sent",
+          "channels": [
+            "adminPanel",
+            "console",
+            "push",
+            "email",
+            "telegram"
+          ]
+        },
+        "escalationDelivery": {
+          "adminPanel": "stored",
+          "console": {
+            "status": "logged"
+          },
+          "push": {
+            "status": "skipped",
+            "reason": "no_admin_subscriptions"
+          },
+          "telegram": {
+            "status": "sent"
+          },
+          "email": {
+            "status": "sent",
+            "recipientCount": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "alert_1777325491546_2vj3xf",
+      "alertId": "alert_1777325491546_2vj3xf",
+      "type": "slo_breach",
+      "severity": "critical",
+      "sourceModule": "slo-breach-engine",
+      "status": "resolved",
+      "occurrences": 1,
+      "database": "MEN_MATERIAL",
+      "view": "Summary",
+      "user": null,
+      "message": "Failure rate SLO breached: 50.00% in 5m",
+      "details": {
+        "metric": "failure_rate",
+        "api": "records",
+        "layer": "proxy",
+        "failures": 1,
+        "total": 2,
+        "failureRatePct": 50,
+        "thresholds": {
+          "warningPct": 10,
+          "criticalPct": 25
+        }
+      },
+      "signature": "slo_failure_rate::men_material::proxy::critical::29622091",
+      "incidentKey": "a400aa2bd02b2865beed",
+      "errorSignature": "records::proxy::slo-breach-engine::failure rate slo breached: 50.00% in 5m",
+      "firstSeen": "2026-04-27T21:31:31.546Z",
+      "lastSeen": "2026-04-27T21:31:31.546Z",
+      "escalationLevel": 1,
+      "lastEscalatedAt": "2026-04-27T21:33:09.276Z",
+      "escalationReason": "unresolved_incident",
+      "escalationHistory": [
+        {
+          "level": 1,
+          "at": "2026-04-27T21:33:09.276Z",
+          "reason": "unresolved_incident",
+          "triggeredBy": "slo-escalation-engine"
+        }
+      ],
+      "createdAt": "2026-04-27T21:31:31.546Z",
+      "updatedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedAt": "2026-04-27T21:41:50.8072606Z",
+      "resolvedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedBy": "system-baseline-cleanup",
+      "resolvedBy": "system-baseline-cleanup",
+      "deliveryStatus": {
+        "adminPanel": "stored",
+        "console": {
+          "status": "logged"
+        },
+        "push": {
+          "status": "skipped",
+          "reason": "no_admin_subscriptions"
+        },
+        "routingLogic": "Severity [critical]: All channels - immediate escalation required → Type [slo_breach]: SLO breaches require operational attention → Routed to: adminPanel, console, push",
+        "escalation": {
+          "level": 1,
+          "at": "2026-04-27T21:33:11.208Z",
+          "status": "sent",
+          "channels": [
+            "adminPanel",
+            "console",
+            "push",
+            "email",
+            "telegram"
+          ]
+        },
+        "escalationDelivery": {
+          "adminPanel": "stored",
+          "console": {
+            "status": "logged"
+          },
+          "push": {
+            "status": "skipped",
+            "reason": "no_admin_subscriptions"
+          },
+          "telegram": {
+            "status": "sent"
+          },
+          "email": {
+            "status": "sent",
+            "recipientCount": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "alert_1777325491543_hx7g9d",
+      "alertId": "alert_1777325491543_hx7g9d",
+      "type": "sync_failure",
+      "severity": "warning",
+      "sourceModule": "slo-breach-engine",
+      "status": "resolved",
+      "occurrences": 1,
+      "database": "MEN_MATERIAL",
+      "view": "Summary",
+      "user": null,
+      "message": "Sync failures breached threshold: 1 failures in 5m",
+      "details": {
+        "api": "records",
+        "layer": "proxy",
+        "error": "simulated failure 1",
+        "failures": 1,
+        "total": 2,
+        "failureRatePct": 50,
+        "thresholds": {
+          "warningCount": 1,
+          "criticalCount": 3
+        }
+      },
+      "signature": "sync_failure_threshold::men_material::proxy::warning::29622091",
+      "incidentKey": "791bbd438416610ef6e4",
+      "errorSignature": "records::proxy::slo-breach-engine::sync failures breached threshold: 1 failures in 5m",
+      "firstSeen": "2026-04-27T21:31:31.543Z",
+      "lastSeen": "2026-04-27T21:31:31.543Z",
+      "escalationLevel": 1,
+      "lastEscalatedAt": "2026-04-27T21:33:11.21Z",
+      "escalationReason": "unresolved_incident",
+      "escalationHistory": [
+        {
+          "level": 1,
+          "at": "2026-04-27T21:33:11.21Z",
+          "reason": "unresolved_incident",
+          "triggeredBy": "slo-escalation-engine"
+        }
+      ],
+      "createdAt": "2026-04-27T21:31:31.543Z",
+      "updatedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedAt": "2026-04-27T21:41:50.8072606Z",
+      "resolvedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedBy": "system-baseline-cleanup",
+      "resolvedBy": "system-baseline-cleanup",
+      "deliveryStatus": {
+        "adminPanel": "stored",
+        "console": {
+          "status": "logged"
+        },
+        "push": {
+          "status": "skipped",
+          "reason": "no_admin_subscriptions"
+        },
+        "routingLogic": "Severity [warning]: Tier 1 channels - admin notification → Type [sync_failure]: Data sync issues affect system integrity → Routed to: adminPanel, console, push",
+        "escalation": {
+          "level": 1,
+          "at": "2026-04-27T21:33:13.094Z",
+          "status": "sent",
+          "channels": [
+            "adminPanel",
+            "console",
+            "push",
+            "email",
+            "telegram"
+          ]
+        },
+        "escalationDelivery": {
+          "adminPanel": "stored",
+          "console": {
+            "status": "logged"
+          },
+          "push": {
+            "status": "skipped",
+            "reason": "no_admin_subscriptions"
+          },
+          "telegram": {
+            "status": "sent"
+          },
+          "email": {
+            "status": "sent",
+            "recipientCount": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "alert_1777325491538_1guom7",
+      "alertId": "alert_1777325491538_1guom7",
+      "type": "sync_delay",
+      "severity": "warning",
+      "sourceModule": "slo-breach-engine",
+      "status": "resolved",
+      "occurrences": 1,
+      "database": "MEN_MATERIAL",
+      "view": "Summary",
+      "user": null,
+      "message": "Sync delay SLO breached: 12000 ms",
+      "details": {
+        "metric": "sync_delay",
+        "api": "records",
+        "layer": "proxy",
+        "durationMs": 12000,
+        "thresholds": {
+          "warningMs": 10000,
+          "criticalMs": 20000
+        }
+      },
+      "signature": "sync_delay::men_material::proxy::warning::48",
+      "incidentKey": "d41077df64e407698b0b",
+      "errorSignature": "records::proxy::slo-breach-engine::sync delay slo breached: 12000 ms",
+      "firstSeen": "2026-04-27T21:31:31.538Z",
+      "lastSeen": "2026-04-27T21:31:31.538Z",
+      "escalationLevel": 1,
+      "lastEscalatedAt": "2026-04-27T21:33:13.096Z",
+      "escalationReason": "unresolved_incident",
+      "escalationHistory": [
+        {
+          "level": 1,
+          "at": "2026-04-27T21:33:13.096Z",
+          "reason": "unresolved_incident",
+          "triggeredBy": "slo-escalation-engine"
+        }
+      ],
+      "createdAt": "2026-04-27T21:31:31.538Z",
+      "updatedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedAt": "2026-04-27T21:41:50.8072606Z",
+      "resolvedAt": "2026-04-27T21:41:50.8072606Z",
+      "acknowledgedBy": "system-baseline-cleanup",
+      "resolvedBy": "system-baseline-cleanup",
+      "deliveryStatus": {
+        "adminPanel": "stored",
+        "console": {
+          "status": "logged"
+        },
+        "push": {
+          "status": "skipped",
+          "reason": "no_admin_subscriptions"
+        },
+        "routingLogic": "Severity [warning]: Tier 1 channels - admin notification → Type [sync_delay]: Sync delay breaches impact freshness and should notify operators → Routed to: adminPanel, console, push",
+        "escalation": {
+          "level": 1,
+          "at": "2026-04-27T21:33:14.999Z",
+          "status": "sent",
+          "channels": [
+            "adminPanel",
+            "console",
+            "push",
+            "email",
+            "telegram"
+          ]
+        },
+        "escalationDelivery": {
+          "adminPanel": "stored",
+          "console": {
+            "status": "logged"
+          },
+          "push": {
+            "status": "skipped",
+            "reason": "no_admin_subscriptions"
+          },
+          "telegram": {
+            "status": "sent"
+          },
+          "email": {
+            "status": "sent",
+            "recipientCount": 1
+          }
+        }
+      }
+    }
+  ]
+}

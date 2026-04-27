@@ -12,6 +12,7 @@ import {
   verifyViewAlignmentQuerySchema,
   gasViewsQuerySchema,
   adminColumnsQuerySchema,
+  adminFilterValuesQuerySchema,
   createDatabaseSchema,
   updateDatabaseSchema,
   createViewDefinitionSchema,
@@ -63,27 +64,192 @@ function extractRows(payload) {
   return [];
 }
 
+function extractTotalRows(payload) {
+  const candidates = [
+    payload?.data?.totalRows,
+    payload?.data?.total,
+    payload?.totalRows,
+    payload?.total,
+    payload?.pagination?.total,
+  ];
+
+  for (const candidate of candidates) {
+    const value = Number(candidate);
+    if (Number.isFinite(value) && value >= 0) {
+      return Math.floor(value);
+    }
+  }
+
+  return null;
+}
+
+function toSheetColumnLetter(index) {
+  let n = Number(index) + 1;
+  if (!Number.isFinite(n) || n <= 0) return '';
+
+  let out = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    out = String.fromCodePoint(65 + rem) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
+
+function fromSheetColumnLetter(letter) {
+  const raw = String(letter || '').trim().toUpperCase();
+  if (!raw || /[^A-Z]/.test(raw)) return -1;
+
+  let out = 0;
+  for (const ch of raw) {
+    out = (out * 26) + (ch.codePointAt(0) - 64);
+  }
+
+  return out - 1;
+}
+
+function extractRangeEndColumn(dataRange) {
+  const raw = String(dataRange || '').trim().toUpperCase();
+  if (!raw) return '';
+
+  const parts = raw.split(':');
+  const lastPart = parts.at(-1) || '';
+  const match = /[A-Z]+/.exec(lastPart);
+  return match ? match[0] : '';
+}
+
+function extractHeaderCells(payload) {
+  const candidates = [
+    payload?.data?.headers,
+    payload?.headers,
+    payload?.data?.meta?.headers,
+    payload?.meta?.headers,
+    payload?.data?.source?.headers,
+    payload?.source?.headers,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate;
+    }
+  }
+
+  return [];
+}
+
+function getColumnsFromRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const firstRow = rows.find((row) => row && typeof row === 'object');
+  return firstRow ? Object.keys(firstRow) : [];
+}
+
+function findLastNonEmptyHeaderIndex(headerCells, fallbackColumns) {
+  const headers = Array.isArray(headerCells) ? headerCells : [];
+  for (let i = headers.length - 1; i >= 0; i -= 1) {
+    if (String(headers[i] ?? '').trim()) return i;
+  }
+
+  const safeFallback = Array.isArray(fallbackColumns) ? fallbackColumns : [];
+  return safeFallback.length > 0 ? safeFallback.length - 1 : -1;
+}
+
+function buildRangeMetadata(payload, lastHeaderIndex, totalColumns) {
+  const headerRow = 1;
+  const safeLastIndex = Number.isFinite(lastHeaderIndex) ? Math.floor(lastHeaderIndex) : -1;
+  const safeTotalColumns = Number.isFinite(totalColumns) ? Math.max(0, Math.floor(totalColumns)) : 0;
+  const lastColumn = safeLastIndex >= 0 ? toSheetColumnLetter(safeLastIndex) : '';
+  const totalRows = extractTotalRows(payload);
+
+  let detectedSourceRange = '';
+  if (lastColumn) {
+    if (Number.isFinite(totalRows) && totalRows > 0) {
+      detectedSourceRange = `A1:${lastColumn}${totalRows + headerRow}`;
+    } else {
+      detectedSourceRange = `A:${lastColumn}`;
+    }
+  }
+
+  return {
+    detectedSourceRange,
+    totalColumns: safeTotalColumns,
+    headerRow,
+    lastColumn,
+    totalRows,
+  };
+}
+
+function detectColumnsAndMetadata(payload, fallbackColumns = []) {
+  const rows = extractRows(payload);
+  const rowColumns = getColumnsFromRows(rows);
+  const providedFallback = Array.isArray(fallbackColumns) ? fallbackColumns : [];
+  const columns = (rowColumns.length > 0 ? rowColumns : providedFallback)
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+
+  const headerCells = extractHeaderCells(payload);
+  const lastHeaderIndex = findLastNonEmptyHeaderIndex(headerCells, columns);
+  const totalColumns = Number.isFinite(lastHeaderIndex) && lastHeaderIndex >= 0
+    ? lastHeaderIndex + 1
+    : columns.length;
+
+  return {
+    columns,
+    metadata: buildRangeMetadata(payload, lastHeaderIndex, totalColumns),
+  };
+}
+
+function extractUniqueValues(rows, column, limit = 500) {
+  const normalizedColumn = String(column || '').trim();
+  if (!normalizedColumn) return [];
+
+  const seen = new Set();
+  const values = [];
+  for (const row of rows || []) {
+    const raw = row?.[normalizedColumn];
+    const value = String(raw == null ? '' : raw).trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    values.push(value);
+    if (values.length >= limit) break;
+  }
+
+  return values;
+}
+
 function isLegacyDatabase(database) {
   const db = String(database || '').toUpperCase();
   return db === 'MEN_MATERIAL' || db === 'LACE_GAYLE';
 }
 
 async function fetchCustomDatabaseSample(databaseName, requester, pageSize = 200) {
+  const payload = await fetchCustomDatabaseSamplePayload(databaseName, requester, pageSize);
+  return extractRows(payload);
+}
+
+async function fetchCustomDatabaseSamplePayload(databaseName, requester, pageSize = 200, options = {}) {
   const db = getDatabaseByName(databaseName);
   if (!db) throw new Error('Database not found');
   if (!db.active) throw new Error('Database is inactive');
 
-  const payload = await fetchDataFromGas({
+  const { dataRange, useConfiguredRange = true } = options;
+  const resolvedDataRange = dataRange || (useConfiguredRange ? db.dataRange : '');
+
+  const requestPayload = {
     database: db.name,
     sheetIdOrUrl: db.sheetIdOrUrl,
     sheetName: db.sheetName,
-    dataRange: db.dataRange,
     page: 1,
     pageSize,
     requester,
-  });
+  };
 
-  return extractRows(payload);
+  if (resolvedDataRange) {
+    requestPayload.dataRange = resolvedDataRange;
+  }
+
+  return fetchDataFromGas(requestPayload);
 }
 
 router.use(requireAuth, requirePermission('admin:manage'));
@@ -163,25 +329,79 @@ router.post('/databases/:id/detect-columns', async (req, res, next) => {
     if (!db) return next({ status: 404, message: 'Database not found' });
     const dbName = db.name;
 
+    let payload = null;
     let columns = [];
+    let metadata = null;
 
     if (isLegacyDatabase(dbName)) {
       const response = await fetchViewConfigFromGas({ database: dbName });
       const configs = Array.isArray(response?.data?.configs) ? response.data.configs : [];
       const firstView = configs[0]?.view;
+      const fallbackColumns = Array.isArray(configs[0]?.columnsList) ? configs[0].columnsList : [];
 
-      if (firstView) {
-        const rows = dbName === 'LACE_GAYLE'
-          ? extractRows(await fetchViewOutputFromGas({ database: dbName, view: firstView, page: 1, pageSize: 1, requester: req.user?.email }))
-          : extractRows(await fetchDataFromGas({ database: dbName, view: firstView, page: 1, pageSize: 1, requester: req.user?.email }));
-        columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+      // Prefer unprojected records for schema discovery so detection reflects full
+      // sheet headers rather than a view's columnsList projection.
+      try {
+        payload = await fetchDataFromGas({
+          database: dbName,
+          page: 1,
+          pageSize: 2,
+          dataRange: 'A:ZZZ',
+          requester: req.user?.email,
+        });
+      } catch {
+        // Fallback for legacy bridge variants that require a view context.
+        if (firstView) {
+          payload = dbName === 'LACE_GAYLE'
+            ? await fetchViewOutputFromGas({ database: dbName, view: firstView, page: 1, pageSize: 1, requester: req.user?.email })
+            : await fetchDataFromGas({ database: dbName, view: firstView, page: 1, pageSize: 1, requester: req.user?.email });
+        }
       }
+
+      const detected = detectColumnsAndMetadata(payload, fallbackColumns);
+      columns = detected.columns;
+      metadata = detected.metadata;
     } else {
-      const rows = await fetchCustomDatabaseSample(dbName, req.user?.email, 2);
-      columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+      // Force a wide discovery range so detection is not limited by a stale configured dataRange.
+      payload = await fetchCustomDatabaseSamplePayload(dbName, req.user?.email, 2, {
+        dataRange: 'A:ZZZ',
+        useConfiguredRange: false,
+      });
+      const detected = detectColumnsAndMetadata(payload);
+      columns = detected.columns;
+      metadata = detected.metadata;
     }
 
-    res.json({ database: dbName, count: columns.length, columns });
+    const currentEndColumn = extractRangeEndColumn(db.dataRange);
+    const currentEndIndex = fromSheetColumnLetter(currentEndColumn);
+    const detectedEndIndex = fromSheetColumnLetter(metadata?.lastColumn);
+
+    let autoUpdated = false;
+    let database = db;
+    if (detectedEndIndex > currentEndIndex && metadata?.lastColumn) {
+      database = updateDatabaseById(db.id, { dataRange: `A:${metadata.lastColumn}` });
+      autoUpdated = true;
+
+      writeAuditEvent({
+        actor: req.user?.email,
+        action: 'admin.database.auto_expand_range',
+        target: db.name,
+        details: {
+          previousRange: db.dataRange,
+          nextRange: `A:${metadata.lastColumn}`,
+          lastColumn: metadata.lastColumn,
+        },
+      });
+    }
+
+    res.json({
+      database: dbName,
+      count: columns.length,
+      columns,
+      metadata,
+      autoUpdated,
+      savedRange: database.dataRange,
+    });
   } catch (error) {
     next(error);
   }
@@ -195,9 +415,16 @@ router.get('/view-definitions', (req, res) => {
 router.post('/view-definitions', validate(createViewDefinitionSchema), (req, res, next) => {
   try {
     const selectedSet = new Set(req.body.selectedColumns || []);
+    const invalidFilterable = (req.body.filterableColumns || []).find((column) => !selectedSet.has(column));
+    if (invalidFilterable) {
+      return next({ status: 400, message: `Filterable column must be part of selected columns: ${invalidFilterable}` });
+    }
     const invalidRule = (req.body.filterRules || []).find((rule) => !selectedSet.has(rule.column));
     if (invalidRule) {
       return next({ status: 400, message: `Filter column must be part of selected columns: ${invalidRule.column}` });
+    }
+    if (req.body.sort?.column && !selectedSet.has(req.body.sort.column)) {
+      return next({ status: 400, message: `Sort column must be part of selected columns: ${req.body.sort.column}` });
     }
 
     const view = createView(req.body);
@@ -223,10 +450,19 @@ router.put('/view-definitions/:id', validate(updateViewDefinitionSchema), (req, 
 
     const selectedColumns = req.body.selectedColumns || current.selectedColumns || [];
     const selectedSet = new Set(selectedColumns);
+    const filterableColumns = req.body.filterableColumns || current.filterableColumns || [];
+    const invalidFilterable = filterableColumns.find((column) => !selectedSet.has(column));
+    if (invalidFilterable) {
+      return next({ status: 400, message: `Filterable column must be part of selected columns: ${invalidFilterable}` });
+    }
     const rules = req.body.filterRules || current.filterRules || [];
     const invalidRule = rules.find((rule) => !selectedSet.has(rule.column));
     if (invalidRule) {
       return next({ status: 400, message: `Filter column must be part of selected columns: ${invalidRule.column}` });
+    }
+    const sortColumn = req.body.sort?.column ?? current.sort?.column;
+    if (sortColumn && !selectedSet.has(sortColumn)) {
+      return next({ status: 400, message: `Sort column must be part of selected columns: ${sortColumn}` });
     }
 
     const view = updateView(req.params.id, req.body);
@@ -321,6 +557,8 @@ router.put('/user/:email', validate(updateUserSchema), (req, res, next) => {
         quota: updated.quota,
         allowedColumns: updated.allowedColumns,
         allowedColumnsByView: updated.allowedColumnsByView,
+        allowedFilterColumnsByView: updated.allowedFilterColumnsByView,
+        filterValueRulesByView: updated.filterValueRulesByView,
       },
     });
     res.json({ user: updated });
@@ -630,6 +868,51 @@ router.get('/columns', validate(adminColumnsQuerySchema, 'query'), async (req, r
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
     return res.json({ database, view, count: columns.length, columns });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/filter-values', validate(adminFilterValuesQuerySchema, 'query'), async (req, res, next) => {
+  try {
+    const { database, view, column } = req.validatedQuery;
+    let rows = [];
+
+    if (!isLegacyDatabase(database)) {
+      rows = await fetchCustomDatabaseSample(database, req.user?.email, 2000);
+    } else if (database === 'LACE_GAYLE') {
+      const payload = await fetchViewOutputFromGas({
+        database,
+        view,
+        page: 1,
+        pageSize: 1000,
+        requester: req.user?.email,
+      });
+      rows = extractRows(payload);
+    } else {
+      const viewConfig = await getViewConfigFromSource({ database, view });
+      const gasFilterParams = {};
+      const cols = viewConfig.filterColumns || [];
+      const vals = viewConfig.filterValues || [];
+      cols.forEach((col, i) => {
+        if (col && vals[i] !== undefined && vals[i] !== '') {
+          gasFilterParams[col] = vals[i];
+        }
+      });
+
+      const payload = await fetchDataFromGas({
+        database,
+        view,
+        page: 1,
+        pageSize: 1000,
+        ...gasFilterParams,
+        requester: req.user?.email,
+      });
+      rows = extractRows(payload);
+    }
+
+    const values = extractUniqueValues(rows, column, 300);
+    return res.json({ database, view, column, count: values.length, values });
   } catch (error) {
     return next(error);
   }

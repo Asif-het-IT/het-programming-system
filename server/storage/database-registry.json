@@ -14,7 +14,7 @@
       "apiToken": "",
       "hiddenColumns": [],
       "createdAt": "2026-04-26T21:34:25.462Z",
-      "updatedAt": "2026-04-26T22:16:32.881Z"
+      "updatedAt": "2026-04-27T21:49:37.523Z"
     },
     {
       "id": "legacy_lace_gayle",
@@ -30,8 +30,67 @@
       "apiToken": "",
       "hiddenColumns": [],
       "createdAt": "2026-04-26T21:34:25.463Z",
-      "updatedAt": "2026-04-26T22:16:32.882Z"
+      "updatedAt": "2026-04-27T21:49:37.524Z"
+    },
+    {
+      "id": "db_1777251043439_23pesu",
+      "name": "BAD_RANGE_1777251043",
+      "displayName": "Bad Range",
+      "type": "custom",
+      "sheetIdOrUrl": "https://example.com/sheet",
+      "sheetName": "Database",
+      "dataRange": "A:AZ",
+      "primaryKey": "",
+      "active": true,
+      "bridgeUrl": "https://example.com/bridge",
+      "apiToken": "token123",
+      "hiddenColumns": [],
+      "createdAt": "2026-04-27T00:50:43.439Z",
+      "updatedAt": "2026-04-27T21:49:37.524Z"
     }
   ],
-  "views": []
+  "views": [
+    {
+      "id": "view_1777284322964_hkom76",
+      "viewName": "Men Material",
+      "database": "MEN_MATERIAL",
+      "selectedColumns": [
+        "Category",
+        "Range",
+        "SR",
+        "Brand",
+        "Marka",
+        "Party Name",
+        "DSN",
+        "Shades",
+        "Shades Qty",
+        "Per Dsn Qty",
+        "Quantity",
+        "Price Usd",
+        "Amount In Usd",
+        "Per Box",
+        "Total Box",
+        "Goods Ready",
+        "Shipment Arrival",
+        "Actual Qty",
+        "Inv Amount USD",
+        "Inv Amount AED",
+        "Remarks"
+      ],
+      "filterableColumns": [
+        "Category",
+        "Range",
+        "Brand",
+        "Marka"
+      ],
+      "filterRules": [],
+      "sort": {
+        "column": "",
+        "direction": "asc"
+      },
+      "active": false,
+      "createdAt": "2026-04-27T10:05:22.964Z",
+      "updatedAt": "2026-04-27T21:49:37.524Z"
+    }
+  ]
 }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import HetLogo from '@/components/HetLogo';
@@ -30,33 +31,6 @@ import {
   createViewDefinitionRequest,
   deleteViewDefinitionRequest,
 } from '@/api/enterpriseApi';
-
-function makeRuleId() {
-  return `rule_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function deriveColumnGroup(column) {
-  const value = String(column || '').trim();
-  if (!value) return 'Other';
-  if (/^[A-Z]{1,3}$/.test(value)) return 'Alphabet Columns';
-  if (/^COL_\d+$/i.test(value)) return 'Generated Columns';
-  const token = value.split('_')[0];
-  if (token && token.length <= 14) return `${token.toUpperCase()} Group`;
-  return 'General Columns';
-}
-
-function buildGroupedColumns(columns) {
-  const groups = {};
-  for (const column of columns) {
-    const group = deriveColumnGroup(column);
-    if (!groups[group]) groups[group] = [];
-    groups[group].push(column);
-  }
-
-  return Object.entries(groups)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([group, items]) => ({ group, items: [...items].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) }));
-}
 
 function getUiError(error, fallbackMessage) {
   const message = error?.response?.data?.error || error?.response?.data?.message || error?.message || fallbackMessage;
@@ -91,6 +65,7 @@ function buildInitialForm() {
     quota: { ...DEFAULT_QUOTA },
     allowedColumns: {},
     allowedColumnsByView: {},
+    allowedFilterColumnsByView: {},
   };
 }
 
@@ -113,6 +88,7 @@ function buildFormFromUser(user) {
     quota,
     allowedColumns: user.allowedColumns && typeof user.allowedColumns === 'object' ? user.allowedColumns : {},
     allowedColumnsByView: user.allowedColumnsByView && typeof user.allowedColumnsByView === 'object' ? user.allowedColumnsByView : {},
+    allowedFilterColumnsByView: user.allowedFilterColumnsByView && typeof user.allowedFilterColumnsByView === 'object' ? user.allowedFilterColumnsByView : {},
   };
 }
 
@@ -175,6 +151,13 @@ function getSyncStatusClass(status) {
 function findViewDatabase(allViews, viewName) {
   const view = allViews.find((item) => item.viewName === viewName);
   return view ? view.database : null;
+}
+
+function makeScopedViewKey(database, viewName) {
+  const db = String(database || '').trim().toUpperCase();
+  const view = String(viewName || '').trim();
+  if (!db || !view) return view;
+  return `${db}::${view}`;
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -257,11 +240,13 @@ export default function AdminPanel() {
     viewName: '',
     database: '',
     selectedColumns: [],
+    filterableColumns: [],
     filterRules: [],
     sortColumn: '',
     sortDirection: 'asc',
     active: true,
   });
+  const [editingViewDefinitionId, setEditingViewDefinitionId] = useState('');
   const [viewColumnSearch, setViewColumnSearch] = useState('');
   const [adminDebugEnabled, setAdminDebugEnabled] = useState(false);
   const [adminDebugDetail, setAdminDebugDetail] = useState('');
@@ -302,12 +287,30 @@ export default function AdminPanel() {
     return selectedBuilderColumns.filter((column) => String(column).toLowerCase().includes(search));
   }, [selectedBuilderColumns, viewColumnSearch]);
 
-  const groupedBuilderColumns = useMemo(() => buildGroupedColumns(filteredBuilderColumns), [filteredBuilderColumns]);
+  const selectedViewColumns = useMemo(() => viewBuilderForm.selectedColumns || [], [viewBuilderForm.selectedColumns]);
+  const selectedFilterableColumns = useMemo(() => viewBuilderForm.filterableColumns || [], [viewBuilderForm.filterableColumns]);
+
+  const selectedBuilderDatabaseConfig = useMemo(() => {
+    return adminDatabases.find((db) => db.name === viewBuilderForm.database) || null;
+  }, [adminDatabases, viewBuilderForm.database]);
+
+  useEffect(() => {
+    const dbName = viewBuilderForm.database;
+    if (!dbName) return;
+    if (Array.isArray(detectedColumns[dbName]) && detectedColumns[dbName].length > 0) return;
+    handleDetectColumns(dbName);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewBuilderForm.database]);
 
   const columnDatabaseViews = useMemo(() => {
     if (!columnDatabase) return [];
     return availableViews.filter((view) => view.database === columnDatabase);
   }, [availableViews, columnDatabase]);
+
+  const columnViewScopedKey = useMemo(() => {
+    if (columnView === 'none') return '';
+    return makeScopedViewKey(columnDatabase, columnView);
+  }, [columnDatabase, columnView]);
 
   const loadPageData = async () => {
     try {
@@ -515,6 +518,26 @@ export default function AdminPanel() {
     });
   };
 
+  const toggleViewFilterAllowedColumn = (viewName, columnName, checked) => {
+    setForm((prev) => {
+      const baseAllowedFilterColumnsByView = prev.allowedFilterColumnsByView && typeof prev.allowedFilterColumnsByView === 'object'
+        ? prev.allowedFilterColumnsByView
+        : {};
+      const current = Array.isArray(prev.allowedFilterColumnsByView?.[viewName]) ? prev.allowedFilterColumnsByView[viewName] : [];
+      const next = checked
+        ? Array.from(new Set([...current, columnName]))
+        : current.filter((item) => item !== columnName);
+
+      return {
+        ...prev,
+        allowedFilterColumnsByView: {
+          ...baseAllowedFilterColumnsByView,
+          [viewName]: next,
+        },
+      };
+    });
+  };
+
   const clearViewColumnOverride = (viewName) => {
     setForm((prev) => {
       const baseAllowedColumnsByView = prev.allowedColumnsByView && typeof prev.allowedColumnsByView === 'object'
@@ -522,9 +545,15 @@ export default function AdminPanel() {
         : {};
       const next = { ...baseAllowedColumnsByView };
       delete next[viewName];
+      const baseAllowedFilterColumnsByView = prev.allowedFilterColumnsByView && typeof prev.allowedFilterColumnsByView === 'object'
+        ? prev.allowedFilterColumnsByView
+        : {};
+      const nextFilter = { ...baseAllowedFilterColumnsByView };
+      delete nextFilter[viewName];
       return {
         ...prev,
         allowedColumnsByView: next,
+        allowedFilterColumnsByView: nextFilter,
       };
     });
   };
@@ -576,6 +605,7 @@ export default function AdminPanel() {
         },
         allowedColumns: form.allowedColumns || {},
         allowedColumnsByView: form.allowedColumnsByView || {},
+        allowedFilterColumnsByView: form.allowedFilterColumnsByView || {},
       };
 
       if (isCreating) {
@@ -596,6 +626,7 @@ export default function AdminPanel() {
             quota: payload.quota,
             allowedColumns: payload.allowedColumns,
             allowedColumnsByView: payload.allowedColumnsByView,
+            allowedFilterColumnsByView: payload.allowedFilterColumnsByView,
           },
         );
         setFeedback({ type: 'success', text: 'User created successfully' });
@@ -761,58 +792,56 @@ export default function AdminPanel() {
         : (prev.selectedColumns || []).filter((item) => item !== column);
 
       const nextFilterRules = (prev.filterRules || []).filter((rule) => nextColumns.includes(rule.column));
+      const nextFilterable = (prev.filterableColumns || []).filter((item) => nextColumns.includes(item));
       return {
         ...prev,
         selectedColumns: nextColumns,
+        filterableColumns: nextFilterable,
         filterRules: nextFilterRules,
+        sortColumn: nextColumns.includes(prev.sortColumn) ? prev.sortColumn : '',
       };
     });
   };
 
   const selectVisibleColumns = () => {
-    if (filteredBuilderColumns.length === 0) return;
-    setViewBuilderForm((prev) => ({
-      ...prev,
-      selectedColumns: Array.from(new Set([...(prev.selectedColumns || []), ...filteredBuilderColumns])),
-    }));
-  };
-
-  const selectColumnGroup = (columns) => {
-    setViewBuilderForm((prev) => ({
-      ...prev,
-      selectedColumns: Array.from(new Set([...(prev.selectedColumns || []), ...columns])),
-    }));
-  };
-
-  const addViewFilterRule = () => {
+    if (selectedBuilderColumns.length === 0) return;
     setViewBuilderForm((prev) => {
-      const allowedColumns = prev.selectedColumns || [];
-      if (allowedColumns.length === 0) {
-        return prev;
-      }
-
+      const nextColumns = Array.from(new Set([...(prev.selectedColumns || []), ...selectedBuilderColumns]));
       return {
         ...prev,
-        filterRules: [
-          ...(prev.filterRules || []),
-          { id: makeRuleId(), column: allowedColumns[0], operator: '=', value: '' },
-        ],
+        selectedColumns: nextColumns,
+        sortColumn: nextColumns.includes(prev.sortColumn) ? prev.sortColumn : '',
       };
     });
   };
 
-  const updateViewFilterRule = (index, field, value) => {
-    setViewBuilderForm((prev) => ({
-      ...prev,
-      filterRules: (prev.filterRules || []).map((rule, idx) => (idx === index ? { ...rule, [field]: value } : rule)),
-    }));
+  const clearVisibleColumns = () => {
+    setViewBuilderForm((prev) => {
+      return {
+        ...prev,
+        selectedColumns: [],
+        filterableColumns: [],
+        filterRules: [],
+        sortColumn: '',
+      };
+    });
   };
 
-  const removeViewFilterRule = (index) => {
-    setViewBuilderForm((prev) => ({
-      ...prev,
-      filterRules: (prev.filterRules || []).filter((_, idx) => idx !== index),
-    }));
+  const toggleViewFilterableColumn = (column, checked) => {
+    setViewBuilderForm((prev) => {
+      if (!(prev.selectedColumns || []).includes(column)) {
+        return prev;
+      }
+
+      const nextFilterable = checked
+        ? Array.from(new Set([...(prev.filterableColumns || []), column]))
+        : (prev.filterableColumns || []).filter((item) => item !== column);
+
+      return {
+        ...prev,
+        filterableColumns: nextFilterable,
+      };
+    });
   };
 
   const handleCreateViewDefinition = async () => {
@@ -833,19 +862,25 @@ export default function AdminPanel() {
       }
 
       const sanitizedRules = (viewBuilderForm.filterRules || [])
-        .filter((rule) => rule.column && String(rule.value || '').trim() !== '')
-        .map(({ id, ...rule }) => rule);
-      await createViewDefinitionRequest({
+        .filter((rule) => rule.column && String(rule.value || '').trim() !== '');
+      const payload = {
         viewName: viewBuilderForm.viewName,
         database: viewBuilderForm.database,
         selectedColumns: viewBuilderForm.selectedColumns,
+        filterableColumns: viewBuilderForm.filterableColumns,
         filterRules: sanitizedRules,
         sort: {
           column: viewBuilderForm.sortColumn || undefined,
           direction: viewBuilderForm.sortDirection || 'asc',
         },
         active: viewBuilderForm.active,
-      });
+      };
+
+      if (editingViewDefinitionId) {
+        await updateViewDefinitionRequest(editingViewDefinitionId, payload);
+      } else {
+        await createViewDefinitionRequest(payload);
+      }
 
       const [viewsPayload, adminViewsPayload] = await Promise.all([getViewDefinitionsRequest(), getAdminViews()]);
       setViewDefinitions(Array.isArray(viewsPayload?.views) ? viewsPayload.views : []);
@@ -855,18 +890,38 @@ export default function AdminPanel() {
         viewName: '',
         database: viewBuilderForm.database,
         selectedColumns: [],
+        filterableColumns: [],
         filterRules: [],
         sortColumn: '',
         sortDirection: 'asc',
         active: true,
       });
-      setFeedback({ type: 'success', text: 'Dynamic view created successfully' });
+      setEditingViewDefinitionId('');
+      setFeedback({ type: 'success', text: editingViewDefinitionId ? 'Dynamic view updated successfully' : 'Dynamic view created successfully' });
       setAdminDebugDetail('');
     } catch (error) {
       const uiError = getUiError(error, 'Unable to create dynamic view');
       setFeedback({ type: 'error', text: uiError.message });
       setAdminDebugDetail(uiError.detail);
     }
+  };
+
+  const handleEditViewDefinition = async (view) => {
+    setEditingViewDefinitionId(view.id || '');
+    setViewBuilderForm({
+      viewName: view.viewName || '',
+      database: view.database || '',
+      selectedColumns: Array.isArray(view.selectedColumns) ? view.selectedColumns : [],
+      filterableColumns: Array.isArray(view.filterableColumns) ? view.filterableColumns : [],
+      filterRules: Array.isArray(view.filterRules) ? view.filterRules : [],
+      sortColumn: view.sort?.column || '',
+      sortDirection: view.sort?.direction || 'asc',
+      active: view.active !== false,
+    });
+    if (view.database) {
+      await handleDetectColumns(view.database);
+    }
+    setFeedback({ type: 'info', text: `Editing view: ${view.viewName}` });
   };
 
   const handleDeleteViewDefinition = async (id) => {
@@ -1050,7 +1105,20 @@ export default function AdminPanel() {
             </div>
             <div>
               <Label className="text-xs mb-1 block">Database</Label>
-              <Select value={viewBuilderForm.database || 'none'} onValueChange={(value) => setViewBuilderForm((prev) => ({ ...prev, database: value === 'none' ? '' : value, selectedColumns: [], filterRules: [], sortColumn: '' }))}>
+              <Select
+                value={viewBuilderForm.database || 'none'}
+                onValueChange={(value) => {
+                  setEditingViewDefinitionId('');
+                  setViewBuilderForm((prev) => ({
+                    ...prev,
+                    database: value === 'none' ? '' : value,
+                    selectedColumns: [],
+                    filterableColumns: [],
+                    filterRules: [],
+                    sortColumn: '',
+                  }));
+                }}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Select database</SelectItem>
@@ -1066,7 +1134,7 @@ export default function AdminPanel() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No sort</SelectItem>
-                  {selectedBuilderColumns.map((column) => (
+                  {selectedViewColumns.map((column) => (
                     <SelectItem key={`sort-${column}`} value={column}>{column}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1093,6 +1161,9 @@ export default function AdminPanel() {
             >
               Detect Columns
             </Button>
+            <div className="text-[11px] text-muted-foreground flex items-center">
+              Source Range: {selectedBuilderDatabaseConfig?.dataRange || '—'}
+            </div>
             <label className="flex items-center gap-2 text-xs">
               <Checkbox checked={viewBuilderForm.active} onCheckedChange={(checked) => setViewBuilderForm((prev) => ({ ...prev, active: checked === true }))} />
               <span>View Active</span>
@@ -1100,13 +1171,13 @@ export default function AdminPanel() {
           </div>
 
           <div className="rounded border border-border p-3">
-            <p className="text-xs font-medium mb-2">Selected Columns (filters only allowed from this list)</p>
+            <p className="text-xs font-medium mb-2">Column Control Panel (Visibility + Filter Toggles)</p>
             <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center">
               <Input
                 value={viewColumnSearch}
                 onChange={(e) => setViewColumnSearch(e.target.value)}
                 className="h-8 text-xs"
-                placeholder="Search columns (A to BE or header name)"
+                placeholder="Search columns"
               />
               <div className="flex gap-2">
                 <Button
@@ -1114,22 +1185,22 @@ export default function AdminPanel() {
                   variant="outline"
                   className="h-8 text-xs"
                   onClick={selectVisibleColumns}
-                  disabled={filteredBuilderColumns.length === 0}
+                  disabled={selectedBuilderColumns.length === 0}
                 >
-                  Select Visible
+                  Enable All Visible
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-8 text-xs"
-                  onClick={() => setViewBuilderForm((prev) => ({ ...prev, selectedColumns: [], filterRules: [] }))}
+                  onClick={clearVisibleColumns}
                   disabled={(viewBuilderForm.selectedColumns || []).length === 0}
                 >
-                  Clear All
+                  Disable All
                 </Button>
               </div>
             </div>
-            <div className="max-h-48 overflow-auto space-y-3">
+            <div className="max-h-80 overflow-auto rounded border border-border">
               {selectedBuilderColumns.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No detected columns yet. Click Detect Columns.</p>
               ) : null}
@@ -1137,69 +1208,73 @@ export default function AdminPanel() {
                 <p className="text-xs text-muted-foreground">No columns matched your search.</p>
               ) : null}
               {selectedBuilderColumns.length > 0 && filteredBuilderColumns.length > 0
-                ? groupedBuilderColumns.map((group) => (
-                  <div key={group.group} className="rounded border border-border p-2">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[11px] font-semibold text-muted-foreground">{group.group} ({group.items.length})</p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-[11px]"
-                        onClick={() => selectColumnGroup(group.items)}
-                      >
-                        Select Group
-                      </Button>
-                    </div>
-                    <div className="grid md:grid-cols-3 gap-2">
-                      {group.items.map((column) => (
-                        <label key={`col-${group.group}-${column}`} className="flex items-center gap-2 text-xs">
-                          <Checkbox checked={(viewBuilderForm.selectedColumns || []).includes(column)} onCheckedChange={(checked) => toggleViewBuilderColumn(column, checked === true)} />
-                          <span>{column}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                ? (
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-3 py-2">Column</th>
+                        <th className="text-center px-3 py-2">Visible</th>
+                        <th className="text-center px-3 py-2">Filter</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBuilderColumns.map((column) => {
+                        const isVisible = selectedViewColumns.includes(column);
+                        const isFilterable = selectedFilterableColumns.includes(column);
+                        return (
+                          <tr key={`toggle-row-${column}`} className="border-t border-border">
+                            <td className="px-3 py-2 font-medium">{column}</td>
+                            <td className="px-3 py-2 text-center">
+                              <Switch
+                                checked={isVisible}
+                                onCheckedChange={(checked) => toggleViewBuilderColumn(column, checked === true)}
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Switch
+                                checked={isFilterable}
+                                disabled={!isVisible}
+                                onCheckedChange={(checked) => toggleViewFilterableColumn(column, checked === true)}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )
                 : null}
             </div>
-          </div>
-
-          <div className="rounded border border-border p-3 space-y-2">
-            <div className="flex justify-between items-center">
-              <p className="text-xs font-medium">Filter Rules (AND logic)</p>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addViewFilterRule} disabled={(viewBuilderForm.selectedColumns || []).length === 0}>
-                Add Filter
-              </Button>
-            </div>
-            {(viewBuilderForm.filterRules || []).length === 0 ? (
-              <p className="text-xs text-muted-foreground">No filters. Add rules if needed.</p>
-            ) : (viewBuilderForm.filterRules || []).map((rule, idx) => (
-              <div key={rule.id || `rule-${idx}`} className="grid md:grid-cols-4 gap-2 items-end">
-                <Select value={rule.column} onValueChange={(value) => updateViewFilterRule(idx, 'column', value)}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(viewBuilderForm.selectedColumns || []).map((column) => (
-                      <SelectItem key={`rule-col-${idx}-${column}`} value={column}>{column}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={rule.operator} onValueChange={(value) => updateViewFilterRule(idx, 'operator', value)}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="=">=</SelectItem>
-                    <SelectItem value="contains">contains</SelectItem>
-                    <SelectItem value=">">&gt;</SelectItem>
-                    <SelectItem value="<">&lt;</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input className="h-8" value={rule.value} onChange={(e) => updateViewFilterRule(idx, 'value', e.target.value)} placeholder="value" />
-                <Button size="sm" variant="ghost" className="h-8 text-red-600" onClick={() => removeViewFilterRule(idx)}>Remove</Button>
-              </div>
-            ))}
+            <p className="text-[11px] text-muted-foreground mt-2">Visible ON controls dashboard columns. Filter ON controls which filter inputs appear in dashboard.</p>
           </div>
 
           <div className="flex justify-end">
-            <Button size="sm" onClick={handleCreateViewDefinition}>Create Dynamic View</Button>
+            <div className="flex gap-2">
+              {editingViewDefinitionId ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingViewDefinitionId('');
+                    setViewBuilderForm((prev) => ({
+                      ...prev,
+                      viewName: '',
+                      selectedColumns: [],
+                      filterableColumns: [],
+                      filterRules: [],
+                      sortColumn: '',
+                      sortDirection: 'asc',
+                      active: true,
+                    }));
+                  }}
+                >
+                  Cancel Edit
+                </Button>
+              ) : null}
+              <Button size="sm" onClick={handleCreateViewDefinition}>
+                {editingViewDefinitionId ? 'Update Dynamic View' : 'Create Dynamic View'}
+              </Button>
+            </div>
           </div>
 
           <div className="rounded border border-border p-3">
@@ -1209,12 +1284,17 @@ export default function AdminPanel() {
                 <div key={view.id} className="rounded border border-border p-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{view.viewName}</span>
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-red-600" onClick={() => handleDeleteViewDefinition(view.id)}>
-                      Delete
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => handleEditViewDefinition(view)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-red-600" onClick={() => handleDeleteViewDefinition(view.id)}>
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-muted-foreground mt-1">{view.database}</p>
-                  <p className="text-muted-foreground">Columns: {(view.selectedColumns || []).length} • Filters: {(view.filterRules || []).length}</p>
+                  <p className="text-muted-foreground">Columns: {(view.selectedColumns || []).length} • Filterable: {(view.filterableColumns || []).length}</p>
                 </div>
               ))}
             </div>
@@ -1339,8 +1419,12 @@ export default function AdminPanel() {
                       if (columnView === 'none') {
                         isViewOverrideActive = false;
                       }
+                      const scopedViewKey = columnViewScopedKey || columnView;
                       const viewChecked = isViewOverrideActive
-                        ? (form.allowedColumnsByView?.[columnView] || []).includes(columnName)
+                        ? ((form.allowedColumnsByView?.[scopedViewKey] || form.allowedColumnsByView?.[columnView] || []).includes(columnName))
+                        : false;
+                      const viewFilterChecked = isViewOverrideActive
+                        ? ((form.allowedFilterColumnsByView?.[scopedViewKey] || form.allowedFilterColumnsByView?.[columnView] || []).includes(columnName))
                         : false;
 
                       return (
@@ -1357,9 +1441,19 @@ export default function AdminPanel() {
                             <label className="flex items-center gap-2 text-xs mt-1">
                               <Checkbox
                                 checked={viewChecked}
-                                onCheckedChange={(checked) => toggleViewAllowedColumn(columnView, columnName, checked === true)}
+                                onCheckedChange={(checked) => toggleViewAllowedColumn(scopedViewKey, columnName, checked === true)}
                               />
                               <span>View override</span>
+                            </label>
+                          )}
+                          {isViewOverrideActive && (
+                            <label className="flex items-center gap-2 text-xs mt-1">
+                              <Checkbox
+                                checked={viewFilterChecked}
+                                disabled={!viewChecked}
+                                onCheckedChange={(checked) => toggleViewFilterAllowedColumn(scopedViewKey, columnName, checked === true)}
+                              />
+                              <span>Filter override</span>
                             </label>
                           )}
                         </div>
@@ -1373,7 +1467,7 @@ export default function AdminPanel() {
                 {columnView !== 'none' && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Override active for: {columnView}</span>
-                    <Button size="sm" variant="outline" onClick={() => clearViewColumnOverride(columnView)}>
+                    <Button size="sm" variant="outline" onClick={() => clearViewColumnOverride(columnViewScopedKey || columnView)}>
                       Clear Override
                     </Button>
                   </div>

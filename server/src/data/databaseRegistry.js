@@ -56,6 +56,10 @@ function normalizeDataRange(value) {
   return /^[A-Z]+:[A-Z]+$/.test(raw) ? raw : 'A:AZ';
 }
 
+function isContinuousDataRange(value) {
+  return /^[A-Z]+:[A-Z]+$/.test(String(value || '').trim().toUpperCase());
+}
+
 function normalizeArray(values) {
   if (!Array.isArray(values)) return [];
   const seen = new Set();
@@ -74,13 +78,45 @@ function normalizeArray(values) {
 function normalizeFilterRule(rule) {
   const column = normalizeString(rule?.column);
   const operator = normalizeString(rule?.operator || '=').toLowerCase();
-  const value = normalizeString(rule?.value);
+  const rawValue = rule?.value;
+  let value = normalizeString(rawValue);
+  if (operator === 'in') {
+    const asArray = Array.isArray(rawValue) ? rawValue : [rawValue];
+    value = normalizeArray(asArray);
+  }
 
   return {
     column,
-    operator: ['=', 'contains', '>', '<'].includes(operator) ? operator : '=',
+    operator: ['=', 'contains', '>', '<', 'in'].includes(operator) ? operator : '=',
     value,
   };
+}
+
+function assertContinuousDataRange(value) {
+  const raw = normalizeString(value).toUpperCase();
+  if (!raw || !isContinuousDataRange(raw)) {
+    throw new Error('Data range must be continuous like A:AZ');
+  }
+}
+
+function assertViewColumnConstraints(view) {
+  const selectedSet = new Set(view.selectedColumns || []);
+  for (const column of view.filterableColumns || []) {
+    if (column && !selectedSet.has(column)) {
+      throw new Error(`Filterable column must be part of selected columns: ${column}`);
+    }
+  }
+
+  for (const rule of view.filterRules || []) {
+    if (rule.column && !selectedSet.has(rule.column)) {
+      throw new Error(`Filter column must be part of selected columns: ${rule.column}`);
+    }
+  }
+
+  const sortColumn = view.sort?.column;
+  if (sortColumn && !selectedSet.has(sortColumn)) {
+    throw new Error(`Sort column must be part of selected columns: ${sortColumn}`);
+  }
 }
 
 function normalizeDatabase(input) {
@@ -106,14 +142,21 @@ function normalizeDatabase(input) {
 }
 
 function normalizeView(input) {
+  const selectedColumns = normalizeArray(input?.selectedColumns);
+  const filterableColumns = normalizeArray(input?.filterableColumns);
   return {
     id: normalizeString(input?.id) || `view_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     viewName: normalizeString(input?.viewName),
     database: normalizeName(input?.database),
-    selectedColumns: normalizeArray(input?.selectedColumns),
+    selectedColumns,
+    filterableColumns,
     filterRules: (Array.isArray(input?.filterRules) ? input.filterRules : [])
       .map(normalizeFilterRule)
-      .filter((rule) => rule.column && rule.value),
+      .filter((rule) => {
+        if (!rule.column) return false;
+        if (rule.operator === 'in') return Array.isArray(rule.value) && rule.value.length > 0;
+        return Boolean(rule.value);
+      }),
     sort: {
       column: normalizeString(input?.sort?.column),
       direction: normalizeString(input?.sort?.direction || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc',
@@ -180,6 +223,7 @@ export function getDatabaseByName(name) {
 }
 
 export function createDatabase(input) {
+  assertContinuousDataRange(input?.dataRange);
   const next = normalizeDatabase(input);
   if (!next.name) throw new Error('Database name is required');
   if (!next.id) throw new Error('Database id generation failed');
@@ -195,6 +239,9 @@ export function createDatabase(input) {
 }
 
 export function updateDatabase(name, input) {
+  if (Object.hasOwn(input || {}, 'dataRange')) {
+    assertContinuousDataRange(input?.dataRange);
+  }
   const normalized = normalizeName(name);
   const index = registry.databases.findIndex((db) => db.name === normalized);
   if (index === -1) throw new Error('Database not found');
@@ -208,6 +255,9 @@ export function updateDatabase(name, input) {
 }
 
 export function updateDatabaseById(id, input) {
+  if (Object.hasOwn(input || {}, 'dataRange')) {
+    assertContinuousDataRange(input?.dataRange);
+  }
   const normalizedId = normalizeId(id);
   const index = registry.databases.findIndex((db) => db.id === normalizedId);
   if (index === -1) throw new Error('Database not found');
@@ -294,6 +344,7 @@ export function createView(input) {
   const next = normalizeView(input);
   if (!next.database) throw new Error('Database is required');
   if (!next.viewName) throw new Error('View name is required');
+  assertViewColumnConstraints(next);
 
   const database = getDatabaseByName(next.database);
   if (!database?.active) throw new Error('Database not available');
@@ -317,6 +368,7 @@ export function updateView(id, input) {
   candidate.createdAt = current.createdAt;
 
   if (!candidate.viewName) throw new Error('View name is required');
+  assertViewColumnConstraints(candidate);
   const duplicate = registry.views.some((item) => item.id !== viewId && item.database === current.database && item.viewName.toLowerCase() === candidate.viewName.toLowerCase());
   if (duplicate) throw new Error('View already exists for this database');
 

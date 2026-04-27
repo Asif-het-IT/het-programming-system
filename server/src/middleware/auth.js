@@ -1,5 +1,6 @@
 import { verifyAccessToken } from '../utils/jwt.js';
 import { hasPermission } from '../config/rolePermissions.js';
+import { reportAuthSecurityEvent } from '../services/alertService.js';
 
 export function requireAuth(req, _res, next) {
   try {
@@ -14,6 +15,13 @@ export function requireAuth(req, _res, next) {
     req.user = payload;
     return next();
   } catch {
+    void reportAuthSecurityEvent({
+      eventType: 'invalid_token',
+      ip: req.ip,
+      email: null,
+      path: req.originalUrl,
+      reason: 'Invalid or expired token',
+    });
     return next({ status: 401, message: 'Invalid or expired token' });
   }
 }
@@ -35,6 +43,15 @@ export function requirePermission(permission) {
     }
 
     if (!hasPermission(req.user, permission)) {
+      if (String(permission || '').startsWith('admin:')) {
+        void reportAuthSecurityEvent({
+          eventType: 'unauthorized_admin_access',
+          ip: req.ip,
+          email: req.user?.email || null,
+          path: req.originalUrl,
+          reason: `Missing permission: ${permission}`,
+        });
+      }
       return next({ status: 403, message: 'Forbidden' });
     }
 
