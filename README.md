@@ -93,7 +93,7 @@ Validation timestamp: 2026-04-27 (pre-production handoff pass)
 - Google Sheets alignment probes executed for MEN_MATERIAL and LACE_GAYLE with `mismatchCount=0` in sampled calls.
 - Export endpoint status:
   - Supported and validated: PDF, EXCEL, PNG.
-  - CSV and JSON returned 400 in current implementation and should be treated as non-production formats unless implemented later.
+  - CSV and JSON are explicitly blocked as unsupported formats in production-facing flow.
 - Login page branding verified:
   - Built by: Sattari Labs
   - Developer: Asif Ali

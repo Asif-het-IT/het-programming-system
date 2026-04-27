@@ -1,5 +1,7 @@
 import { httpClient } from './httpClient';
 
+const SUPPORTED_EXPORT_FORMATS = new Set(['excel', 'pdf', 'png']);
+
 export async function loginRequest(payload) {
   const { data } = await httpClient.post('/login', payload);
   return data;
@@ -16,7 +18,11 @@ export async function getFiltersRequest() {
 }
 
 export async function getExportRequest(params) {
-  const { data } = await httpClient.get('/export', { params });
+  const format = String(params?.format || '').toLowerCase();
+  if (!SUPPORTED_EXPORT_FORMATS.has(format)) {
+    throw new Error(`Unsupported export format: ${params?.format || 'unknown'}. Use excel, pdf, or png.`);
+  }
+  const { data } = await httpClient.get('/export', { params: { ...params, format } });
   return data;
 }
 
