@@ -949,7 +949,8 @@ export default function AdminPanel() {
             </div>
             <div>
               <Label className="text-xs mb-1 block">Data Range</Label>
-              <Input value={dbBuilderForm.dataRange} onChange={(e) => setDbBuilderForm((prev) => ({ ...prev, dataRange: e.target.value }))} placeholder="A:BE" />
+              <Input value={dbBuilderForm.dataRange} onChange={(e) => setDbBuilderForm((prev) => ({ ...prev, dataRange: e.target.value }))} placeholder="A:AZ (continuous only)" />
+              <p className="text-[11px] text-muted-foreground mt-1">Use continuous range only (for example A:H or A:AZ). Select specific columns in View Builder.</p>
             </div>
           </div>
 

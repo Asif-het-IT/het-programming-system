@@ -5,6 +5,11 @@ const databaseNameSchema = z.string().trim().min(1);
 const allowedColumnsSchema = z.record(z.string(), z.array(z.string())).optional();
 
 const allowedColumnsByViewSchema = z.record(z.string(), z.array(z.string())).optional();
+const dataRangeSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]+:[A-Za-z]+$/, 'Data range must be continuous like A:AZ')
+  .transform((value) => value.toUpperCase());
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -167,7 +172,7 @@ export const createDatabaseSchema = z.object({
   displayName: z.string().optional(),
   sheetIdOrUrl: z.string().min(1),
   sheetName: z.string().min(1),
-  dataRange: z.string().min(1),
+  dataRange: dataRangeSchema,
   primaryKey: z.string().optional(),
   active: z.boolean().optional(),
   bridgeUrl: z.string().url(),
@@ -179,7 +184,7 @@ export const updateDatabaseSchema = z.object({
   displayName: z.string().optional(),
   sheetIdOrUrl: z.string().min(1).optional(),
   sheetName: z.string().min(1).optional(),
-  dataRange: z.string().min(1).optional(),
+  dataRange: dataRangeSchema.optional(),
   primaryKey: z.string().optional(),
   active: z.boolean().optional(),
   bridgeUrl: z.string().url().optional(),

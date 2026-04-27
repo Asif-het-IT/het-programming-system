@@ -50,6 +50,12 @@ function normalizeString(value) {
   return String(value || '').trim();
 }
 
+function normalizeDataRange(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw) return 'A:AZ';
+  return /^[A-Z]+:[A-Z]+$/.test(raw) ? raw : 'A:AZ';
+}
+
 function normalizeArray(values) {
   if (!Array.isArray(values)) return [];
   const seen = new Set();
@@ -88,7 +94,7 @@ function normalizeDatabase(input) {
     type,
     sheetIdOrUrl: normalizeString(input?.sheetIdOrUrl),
     sheetName: normalizeString(input?.sheetName || 'Database'),
-    dataRange: normalizeString(input?.dataRange || 'A:AZ'),
+    dataRange: normalizeDataRange(input?.dataRange || 'A:AZ'),
     primaryKey: normalizeString(input?.primaryKey),
     active: input?.active !== false,
     bridgeUrl: normalizeString(input?.bridgeUrl),
