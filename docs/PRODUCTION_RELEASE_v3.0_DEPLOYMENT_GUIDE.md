@@ -209,3 +209,33 @@ Recommended API checks:
 - Current system baseline is verified stable and clean.
 - Runtime JSON files can change during normal operation.
 - Treat database-registry.json and sync-log.json as operational state files.
+
+## 7) Final Enterprise QA Execution Record (2026-04-27)
+
+Validated in controlled local runtime before production handoff:
+
+- Build and packaging:
+	- `npm install` passed
+	- `npm run build` passed
+	- `npm run build:prod` passed
+- Backend functional checks:
+	- `/api/health` returned 200
+	- admin database/view endpoints returned 200
+	- admin user lifecycle endpoints validated (create/update/reset/disable/enable/delete)
+- Access control checks:
+	- unauthenticated protected calls return 401
+	- authenticated non-admin calls to admin routes return 403
+- Dynamic builder checks:
+	- dynamic database create (201) and delete (200)
+	- dynamic view-definition create (201) and delete (200)
+- Export checks:
+	- PDF/EXCEL/PNG returned 200
+	- CSV/JSON returned 400 (treat as unsupported until implemented)
+- Live data alignment checks:
+	- MEN_MATERIAL sampled mismatchCount=0
+	- LACE_GAYLE sampled mismatchCount=0
+
+Open risk notes:
+
+- Full authenticated visual QA across all target breakpoints should be completed in a dedicated UI pass.
+- Local machine `server/.env` may contain live-like values and must remain untracked and rotation-managed.

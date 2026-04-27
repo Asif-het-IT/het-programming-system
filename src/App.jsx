@@ -12,6 +12,7 @@ import Login from './pages/Login';  // eager — entry point, must not lazy-load
 const ROUTER_FUTURE = { v7_startTransition: true, v7_relativeSplatPath: true };
 const UserDashboard = lazy(() => import('./pages/UserDashboard'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const AdminAbout = lazy(() => import('./pages/AdminAbout'));
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, isLoading } = useAuth();
@@ -76,6 +77,7 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
+        <Route path="/admin/about" element={<ProtectedRoute adminOnly><AdminAbout /></ProtectedRoute>} />
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center bg-background">
             <div className="text-center">

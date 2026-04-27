@@ -3,6 +3,17 @@
 Scope: Production operations hardening and daily runbook.
 Purpose: Keep system secure, recoverable, and monitorable without changing application business logic.
 
+## Final Enterprise QA Sign-off (2026-04-27)
+
+- [x] Build/install pipeline validated (`npm install`, `npm run build`, `npm run build:prod`).
+- [x] Backend runtime and protected API routes validated on localhost.
+- [x] Admin lifecycle API coverage validated (create/update/reset/disable/enable/delete).
+- [x] Authorization behavior validated (401 unauthenticated, 403 non-admin on admin routes).
+- [x] Dynamic database and view-definition create/delete cycle validated.
+- [x] MEN_MATERIAL and LACE_GAYLE sampled alignment checks returned `mismatchCount=0`.
+- [ ] Full authenticated UI responsive pass on all target devices pending dedicated visual QA session.
+- [ ] CSV and JSON export formats pending implementation or explicit de-scope (currently returning 400).
+
 ## 1. Admin Security
 
 - [ ] Change bootstrap admin password immediately after first login.

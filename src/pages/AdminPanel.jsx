@@ -900,6 +900,9 @@ export default function AdminPanel() {
             <Button size="sm" variant="default" onClick={openCreateForm}>
               <Plus className="h-4 w-4 mr-1" /> New User
             </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/about')}>
+              About / System Info
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
               Dashboard
             </Button>

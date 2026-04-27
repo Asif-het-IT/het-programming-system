@@ -6,7 +6,7 @@ dotenv.config();
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.API_PORT || 3001),
-  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5174').split(',').map((x) => x.trim()),
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((x) => x.trim()),
   bootstrapAdminEmail: process.env.BOOTSTRAP_ADMIN_EMAIL || '',
   bootstrapAdminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD || '',
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || 'replace_access_secret_in_prod',

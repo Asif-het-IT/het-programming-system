@@ -258,6 +258,44 @@ Frontend React App
 - LACE_GAYLE per-view monitoring table
 - Sync failure detection and alert pipeline
 
+### Final Enterprise QA Addendum (2026-04-27)
+
+### Build and Runtime Validation
+- `npm install` completed successfully.
+- `npm run build` completed successfully.
+- `npm run build:prod` completed successfully.
+- Backend runtime started and validated on `http://localhost:3001`.
+
+### Security and Access Control Validation
+- Unauthenticated access to protected endpoints returns 401.
+- Authenticated non-admin access to admin endpoints returns 403.
+- Admin routes confirmed behind `requireAuth` and `requirePermission('admin:manage')` patterns.
+- No tracked source files were found containing active production secrets during tracked-file review.
+
+### Functional API Validation
+- Admin lifecycle APIs validated end-to-end:
+  - create user
+  - update user
+  - reset password
+  - disable user
+  - enable user
+  - delete user
+- Monitoring and notifications status endpoints validated.
+- Dynamic database/view builder APIs validated with create and delete test cycle.
+
+### Live Data Alignment Validation
+- MEN_MATERIAL alignment checks sampled with `mismatchCount=0`.
+- LACE_GAYLE alignment checks sampled with `mismatchCount=0`.
+
+### Export Validation Result
+- Passing formats: PDF, EXCEL, PNG.
+- Current non-passing formats in API probes: CSV, JSON (400 response).
+
+### UI Validation Notes
+- Login screen branding verified with required footer identity lines.
+- Admin route wiring and Admin About route integration verified in code and route map.
+- Dev-server availability issues can produce stale browser websocket errors when Vite is not running; not a production backend defect.
+
 ### Per-view Lace/Gayle visibility
 - Endpoint: /api/admin/monitoring/lace-gayle/views
 - Returns:

@@ -99,9 +99,10 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          Production Ready • Secure Access • Read-Only Views
-        </p>
+        <div className="mt-6 text-center text-[10px] sm:text-xs text-slate-300/70 leading-relaxed">
+          <p>Built by: Sattari Labs</p>
+          <p>Developer: Asif Ali</p>
+        </div>
       </div>
     </div>
   );

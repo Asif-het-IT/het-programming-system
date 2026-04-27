@@ -79,6 +79,31 @@ Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
+## Final Enterprise QA Snapshot
+
+Validation timestamp: 2026-04-27 (pre-production handoff pass)
+
+- Build pipeline passed: `npm install`, `npm run build`, `npm run build:prod`.
+- Backend runtime verified on `http://localhost:3001` with health and protected route checks.
+- Admin lifecycle APIs validated (create/update/reset-password/disable/enable/delete).
+- Authorization matrix verified:
+  - Unauthenticated requests return 401 on protected endpoints.
+  - Authenticated non-admin requests to admin routes return 403.
+- Dynamic builder APIs verified with live create/delete cycles for database and view definitions.
+- Google Sheets alignment probes executed for MEN_MATERIAL and LACE_GAYLE with `mismatchCount=0` in sampled calls.
+- Export endpoint status:
+  - Supported and validated: PDF, EXCEL, PNG.
+  - CSV and JSON returned 400 in current implementation and should be treated as non-production formats unless implemented later.
+- Login page branding verified:
+  - Built by: Sattari Labs
+  - Developer: Asif Ali
+
+Notes:
+- Runtime operational JSON files under `server/storage/` can change during normal testing and operations.
+- Local development `server/.env` may contain machine-specific secrets and must remain untracked.
+
+---
+
 ## Project Structure
 
 ```
